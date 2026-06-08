@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:"
+    />
+    <title>Unitree B2 Gazebo Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="titlebar" id="titlebar">
+        <div class="titlebar-brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-text">Unitree B2 · Gazebo</span>
+        </div>
+        <div class="titlebar-drag"></div>
+        <div class="window-controls">
+          <button class="window-btn" id="btn-minimize" type="button" aria-label="Minimize">
+            <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
+          </button>
+          <button class="window-btn window-btn-close" id="btn-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="launch-screen">
+        <div class="launch-frame">
+          <section class="hero-area">
+            <p class="eyebrow">Gazebo Simulation</p>
+
+            <div class="robot-stage">
+              <h1 class="hero-title">Unitree B2</h1>
+              <div class="robot-visual">
+                <div class="robot-glow" aria-hidden="true"></div>
+                <img class="robot-image" src="../assets/b2.png" alt="Unitree B2 robot" />
+              </div>
+            </div>
+          </section>
+
+          <div class="launch-toolbar">
+            <button class="btn btn-ghost" id="btn-start" type="button">
+              <svg class="btn-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M4 3.5v9l8-4.5-8-4.5z" fill="currentColor" stroke="none" />
+              </svg>
+              Start
+            </button>
+            <button class="btn btn-ghost" id="btn-settings" type="button">
+              <svg class="btn-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M8 10.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4zm6.1-2.2l1.2-.9-.9-1.6-1.4.2a6.4 6.4 0 0 0-1.1-.65l-.2-1.4H9.3l-.2 1.4c-.4.16-.76.37-1.1.65l-1.4-.2-.9 1.6 1.2.9a2.2 2.2 0 0 0 0 1.3l-1.2.9.9 1.6 1.4-.2c.34.28.7.49 1.1.65l.2 1.4h1.6l.2-1.4c.4-.16.76-.37 1.1-.65l1.4.2.9-1.6-1.2-.9c.08-.43.08-.87 0-1.3z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.1"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              Settings
+            </button>
+          </div>
+        </div>
+
+        <footer class="app-footer">
+          <span>UnitreeSimUI v0.1.0</span>
+          <span id="platform-label">Windows</span>
+        </footer>
+      </main>
+
+      <div class="dialog-overlay hidden" id="settings-dialog" aria-hidden="true">
+        <div class="dialog" role="dialog" aria-labelledby="settings-title" aria-modal="true">
+          <header class="dialog-header">
+            <h3 id="settings-title">Settings</h3>
+            <button class="dialog-close" id="btn-close-settings" type="button" aria-label="Close settings">×</button>
+          </header>
+          <form class="dialog-form" id="settings-form">
+            <p class="dialog-desc">Configure rosbridge connection for ROS 2 (roslib WebSocket).</p>
+            <label class="field">
+              <span class="field-label">IP address</span>
+              <input id="ros-ip" name="ip" type="text" value="127.0.0.1" autocomplete="off" spellcheck="false" required />
+            </label>
+            <label class="field">
+              <span class="field-label">Port</span>
+              <input id="ros-port" name="port" type="number" value="9090" min="1" max="65535" required />
+            </label>
+            <div class="dialog-actions">
+              <button class="btn btn-ghost" id="btn-cancel-settings" type="button">Cancel</button>
+              <button class="btn btn-ghost" type="submit">Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <script src="../../node_modules/roslib/build/roslib.min.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+</html>
