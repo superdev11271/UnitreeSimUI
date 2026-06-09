@@ -79,6 +79,54 @@ button {
 .titlebar-drag {
   flex: 1;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.titlebar-clock {
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  pointer-events: none;
+  user-select: none;
+}
+
+.titlebar-btn {
+  flex-shrink: 0;
+  height: 28px;
+  margin-right: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 11, 16, 0.42);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn:hover:not(:disabled) {
+  background: rgba(7, 11, 16, 0.58);
+  color: var(--text-primary);
+  border-color: rgba(0, 229, 192, 0.35);
+}
+
+.titlebar-btn:active:not(:disabled) {
+  background: rgba(0, 229, 192, 0.1);
+  color: var(--accent);
+  border-color: rgba(0, 229, 192, 0.45);
+}
+
+.titlebar-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .window-controls {
@@ -166,7 +214,7 @@ button {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: transparent;
+  background: rgba(7, 11, 16, 0.42);
   color: rgba(238, 242, 247, 0.7);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -265,7 +313,7 @@ button {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: transparent;
+  background: rgba(7, 11, 16, 0.42);
   color: rgba(238, 242, 247, 0.7);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -336,8 +384,8 @@ button {
   padding: clamp(5px, 1.2cqmin, 7px) clamp(8px, 1.8cqmin, 10px);
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: rgba(7, 11, 16, 0.55);
-  color: rgba(238, 242, 247, 0.78);
+  background: rgba(7, 11, 16, 0.42);
+  color: rgba(238, 242, 247, 0.7);
   font-size: clamp(9px, 2.1cqmin, 11px);
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -347,7 +395,7 @@ button {
 }
 
 .robot-cmd-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(7, 11, 16, 0.58);
   color: var(--text-primary);
   border-color: rgba(0, 229, 192, 0.35);
 }
@@ -355,7 +403,7 @@ button {
 .robot-cmd-btn:active,
 .robot-cmd-btn.is-pressed,
 .robot-cmd-btn.is-active {
-  background: rgba(0, 229, 192, 0.12);
+  background: rgba(0, 229, 192, 0.1);
   color: var(--accent);
   border-color: rgba(0, 229, 192, 0.45);
 }
@@ -377,8 +425,7 @@ button {
   height: clamp(72px, 22cqmin, 132px);
   border: 1px solid var(--border);
   border-radius: 50%;
-  background: rgba(7, 11, 16, 0.55);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: rgba(7, 11, 16, 0.38);
 }
 
 .joystick-base::before {
@@ -454,12 +501,12 @@ button {
   left: 50%;
   width: 38%;
   aspect-ratio: 1;
-  border: 1px solid rgba(0, 229, 192, 0.35);
+  border: 1px solid rgba(238, 242, 247, 0.35);
   border-radius: 50%;
-  background: rgba(7, 11, 16, 0.85);
-  box-shadow: 0 0 10px rgba(0, 229, 192, 0.15);
+  background: rgba(7, 11, 16, 0.52);
+  color: rgba(238, 242, 247, 0.7);
   cursor: grab;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
   will-change: left, top;
   z-index: 2;
   transform: translate(-50%, -50%);
@@ -467,8 +514,9 @@ button {
 
 .joystick.is-active .joystick-knob {
   cursor: grabbing;
-  border-color: rgba(0, 229, 192, 0.65);
-  box-shadow: 0 0 14px rgba(0, 229, 192, 0.28);
+  background: rgba(0, 229, 192, 0.12);
+  border-color: rgba(0, 229, 192, 0.55);
+  color: var(--accent);
 }
 
 .hidden {

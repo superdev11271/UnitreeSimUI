@@ -3,6 +3,7 @@
   const CMD_CTL_TOPIC = '/cmd_ctl';
   const CMD_STAND_UP = 10001;
   const CMD_STAND_DOWN = 10002;
+  const CMD_RESET_SIMULATION = 10004;
   const LINEAR_SPEED = 0.6;
   const LATERAL_SPEED = 0.4;
   const ANGULAR_SPEED = 1.0;
@@ -270,6 +271,23 @@
     flashButton(button);
   }
 
+  function ensureCmdCtlTopic(ros) {
+    if (!cmdCtlTopic) {
+      cmdCtlTopic = new ROSLIB.Topic({
+        ros,
+        name: CMD_CTL_TOPIC,
+        messageType: 'std_msgs/msg/Int32',
+      });
+    }
+  }
+
+  function publishResetSimulation() {
+    window.unitreeRos.getConnection().then((ros) => {
+      ensureCmdCtlTopic(ros);
+      publishCmdCtl(CMD_RESET_SIMULATION);
+    });
+  }
+
   function startRobotControl(ros) {
     if (!cmdVelTopic) {
       cmdVelTopic = new ROSLIB.Topic({
@@ -279,13 +297,7 @@
       });
     }
 
-    if (!cmdCtlTopic) {
-      cmdCtlTopic = new ROSLIB.Topic({
-        ros,
-        name: CMD_CTL_TOPIC,
-        messageType: 'std_msgs/msg/Int32',
-      });
-    }
+    ensureCmdCtlTopic(ros);
   }
 
   if (baseEl && knobEl) {
@@ -309,5 +321,5 @@
 
   updateLockUi();
 
-  window.unitreeRobotControl = { start: startRobotControl };
+  window.unitreeRobotControl = { start: startRobotControl, publishResetSimulation };
 })();

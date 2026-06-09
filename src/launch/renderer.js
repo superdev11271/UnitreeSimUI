@@ -141,6 +141,27 @@ function handleSettingsSave(event) {
   showToast('Settings saved');
 }
 
+function startTitlebarClock() {
+  const clockEl = document.getElementById('titlebar-clock');
+  if (!clockEl) return;
+
+  function tick() {
+    const now = new Date();
+    clockEl.dateTime = now.toISOString();
+    clockEl.textContent = now.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+
+  tick();
+  window.setInterval(tick, 1000);
+}
+
 function setupWindowControls() {
   document.getElementById('btn-minimize').addEventListener('click', () => {
     window.unitreeSim.minimizeWindow();
@@ -179,5 +200,6 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+startTitlebarClock();
 setupWindowControls();
 setupPlatformLabel();

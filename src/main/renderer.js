@@ -1,3 +1,30 @@
+function startTitlebarClock() {
+  const clockEl = document.getElementById('titlebar-clock');
+  if (!clockEl) return;
+
+  function tick() {
+    const now = new Date();
+    clockEl.dateTime = now.toISOString();
+    clockEl.textContent = now.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+
+  tick();
+  window.setInterval(tick, 1000);
+}
+
+startTitlebarClock();
+
+document.getElementById('btn-reset-simulation')?.addEventListener('click', () => {
+  window.unitreeRobotControl?.publishResetSimulation();
+});
+
 const workspace = document.getElementById('workspace');
 const panels = [...document.querySelectorAll('.sub-panel')];
 
