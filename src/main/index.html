@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss:; img-src 'self' blob: data:"
+    />
+    <title>Unitree B2 Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="titlebar">
+        <div class="titlebar-brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-text">Unitree B2 Simulator</span>
+        </div>
+        <div class="titlebar-drag"></div>
+        <div class="window-controls">
+          <button class="window-btn" id="btn-minimize" type="button" aria-label="Minimize">
+            <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
+          </button>
+          <button class="window-btn" id="btn-maximize" type="button" aria-label="Maximize">
+            <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+          </button>
+          <button class="window-btn window-btn-close" id="btn-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace" id="workspace">
+        <section class="sub-panel" data-panel="1">
+          <div class="sub-panel-body camera-panel">
+            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+            </button>
+            <canvas id="main-camera-canvas" aria-label="Main camera feed"></canvas>
+            <div class="camera-crosshair" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <defs>
+                  <linearGradient id="crosshair-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#00e5c0" stop-opacity="0.6" />
+                    <stop offset="100%" stop-color="#0099ff" stop-opacity="0.6" />
+                  </linearGradient>
+                </defs>
+                <path d="M12 5v14M5 12h14" stroke="url(#crosshair-gradient)" />
+              </svg>
+            </div>
+            <div class="camera-pip">
+              <button class="camera-swap-btn" id="camera-swap-btn" type="button" aria-label="Swap main camera">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M5 2.5 2.5 5l2.5 2.5M11 13.5l2.5-2.5-2.5-2.5M2.75 5h10.5M13.25 11H2.75" />
+                </svg>
+              </button>
+              <canvas id="pip-camera-canvas" aria-label="Picture-in-picture camera feed"></canvas>
+            </div>
+            <p class="camera-status" id="front-camera-status">Waiting for camera…</p>
+          </div>
+        </section>
+
+        <section class="sub-panel" data-panel="2">
+          <div class="sub-panel-body">
+            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+            </button>
+          </div>
+        </section>
+
+        <section class="sub-panel" data-panel="3">
+          <div class="sub-panel-body">
+            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+            </button>
+          </div>
+        </section>
+
+        <section class="sub-panel" data-panel="4">
+          <div class="sub-panel-body">
+            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="../../node_modules/roslib/build/roslib.min.js"></script>
+    <script src="camera.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+</html>
