@@ -108,6 +108,7 @@ async function handleStart() {
 
   try {
     await connectRos(activeSettings);
+    disconnectRos();
 
     const result = await window.unitreeSim.launchSimulator({
       ip: activeSettings.ip,

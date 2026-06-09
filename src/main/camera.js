@@ -1,5 +1,4 @@
-const SETTINGS_KEY = 'unitree-b2-ros-settings';
-
+(function () {
 const CAMERA_TOPICS = {
   front: {
     imageTopic: '/camera_front/camera_sensor/image_raw/compressed',
@@ -20,7 +19,6 @@ const pipContainer = document.querySelector('.camera-pip');
 const statusEl = document.getElementById('front-camera-status');
 const swapBtn = document.getElementById('camera-swap-btn');
 
-let rosConnection = null;
 let mainCameraKey = 'front';
 let frontStream = null;
 let backStream = null;
@@ -67,6 +65,14 @@ function drawCover(destCtx, destCanvas, source, destWidth, destHeight) {
 }
 
 function createCameraStream({ imageTopic, infoTopic, onLive }) {
+  if (!mainCanvas || !mainContainer || !pipContainer) {
+    return {
+      subscribe() {},
+      setRenderTarget() {},
+      renderFrame() {},
+    };
+  }
+
   const sourceCanvas = document.createElement('canvas');
   const sourceCtx = sourceCanvas.getContext('2d');
   let canvas = mainCanvas;
@@ -183,6 +189,10 @@ function setStatus(text, state) {
 }
 
 function applyCameraLayout() {
+  if (!frontStream || !backStream || !mainCanvas || !pipCanvas || !mainContainer || !pipContainer) {
+    return;
+  }
+
   const pipCameraKey = mainCameraKey === 'front' ? 'back' : 'front';
 
   if (mainCameraKey === 'front') {
@@ -193,7 +203,9 @@ function applyCameraLayout() {
     frontStream.setRenderTarget(pipCanvas, pipContainer);
   }
 
-  swapBtn.setAttribute('aria-label', `Show ${CAMERA_TOPICS[pipCameraKey].label.toLowerCase()} as main`);
+  if (swapBtn) {
+    swapBtn.setAttribute('aria-label', `Show ${CAMERA_TOPICS[pipCameraKey].label.toLowerCase()} as main`);
+  }
 
   frontStream.renderFrame();
   backStream.renderFrame();
@@ -204,64 +216,12 @@ function swapMainCamera() {
   applyCameraLayout();
 }
 
-function loadSettingsFromStorage() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
-    if (saved?.ip && saved?.port) {
-      return {
-        ip: String(saved.ip).trim(),
-        port: Number(saved.port) || 9090,
-        url: `ws://${saved.ip}:${Number(saved.port) || 9090}`,
-      };
-    }
-  } catch {
-    // ignore invalid storage
-  }
-  return null;
-}
-
-async function resolveConnectionSettings() {
-  const fromMain = await window.unitreeSim.getConnectionSettings();
-  if (fromMain?.url) {
-    return fromMain;
-  }
-  return loadSettingsFromStorage();
-}
-
-function connectRos(url) {
-  return new Promise((resolve, reject) => {
-    if (rosConnection) {
-      rosConnection.close();
-      rosConnection = null;
-    }
-
-    const ros = new ROSLIB.Ros({ url });
-    let settled = false;
-
-    const finish = (fn, value) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(connectTimer);
-      fn(value);
-    };
-
-    const connectTimer = window.setTimeout(() => {
-      ros.close();
-      finish(reject, new Error('ROS connection timed out'));
-    }, 8000);
-
-    ros.on('connection', () => {
-      rosConnection = ros;
-      finish(resolve, ros);
-    });
-
-    ros.on('error', () => {
-      finish(reject, new Error('Could not connect to rosbridge'));
-    });
-  });
-}
-
 function startCameras(ros) {
+  if (!mainCanvas || !pipCanvas || !mainContainer || !pipContainer) {
+    setStatus('Camera panel not ready', 'is-error');
+    return;
+  }
+
   frontStream = createCameraStream({
     ...CAMERA_TOPICS.front,
     onLive: (label) => {
@@ -286,22 +246,9 @@ function startCameras(ros) {
   setStatus(`Subscribed · ${CAMERA_TOPICS[mainCameraKey].imageTopic}`, null);
 }
 
-async function initCameras() {
-  const settings = await resolveConnectionSettings();
-  if (!settings?.url) {
-    setStatus('ROS settings not found', 'is-error');
-    return;
-  }
-
-  setStatus(`Connecting · ${settings.url}`, null);
-
-  try {
-    const ros = await connectRos(settings.url);
-    startCameras(ros);
-  } catch (error) {
-    setStatus(error.message || 'Camera connection failed', 'is-error');
-  }
+if (swapBtn) {
+  swapBtn.addEventListener('click', swapMainCamera);
 }
 
-swapBtn.addEventListener('click', swapMainCamera);
-initCameras();
+window.unitreeCamera = { start: startCameras };
+})();

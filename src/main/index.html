@@ -63,11 +63,13 @@
         </section>
 
         <section class="sub-panel" data-panel="2">
-          <div class="sub-panel-body">
+          <div class="sub-panel-body lidar-panel">
             <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
               <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
               <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
             </button>
+            <canvas id="lidar-canvas" aria-label="Lidar point cloud"></canvas>
+            <p class="lidar-status" id="lidar-status">Waiting for lidar…</p>
           </div>
         </section>
 
@@ -93,6 +95,8 @@
 
     <script src="../../node_modules/roslib/build/roslib.min.js"></script>
     <script src="camera.js"></script>
+    <script src="lidar.js"></script>
+    <script src="ros-shared.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>
