@@ -1,4 +1,9 @@
 (function () {
+  const CMD_VEL_TOPIC = '/cmd_vel';
+  const LINEAR_SPEED = 0.6;
+  const ANGULAR_SPEED = 1.0;
+  const PUBLISH_HZ = 20;
+
   const joystickEl = document.getElementById('move-joystick');
   if (!joystickEl) return;
 
@@ -10,23 +15,59 @@
   let pointerId = null;
   let maxOffset = 0;
   let value = { x: 0, y: 0 };
+  let cmdVelTopic = null;
+  let publishTimer = null;
+
+  const stopTwist = {
+    linear: { x: 0, y: 0, z: 0 },
+    angular: { x: 0, y: 0, z: 0 },
+  };
+
+  function joystickToTwist(x, y) {
+    return {
+      linear: {
+        x: y * LINEAR_SPEED,
+        y: 0,
+        z: 0,
+      },
+      angular: { x: 0, y: 0, z: -x * ANGULAR_SPEED },
+    };
+  }
+
+  function publishCmdVel(twist) {
+    if (!cmdVelTopic) return;
+    cmdVelTopic.publish(twist);
+  }
+
+  function stopPublishing() {
+    if (publishTimer) {
+      window.clearInterval(publishTimer);
+      publishTimer = null;
+    }
+  }
+
+  function startPublishing() {
+    if (publishTimer || !cmdVelTopic) return;
+    publishTimer = window.setInterval(() => {
+      publishCmdVel(joystickToTwist(value.x, value.y));
+    }, 1000 / PUBLISH_HZ);
+  }
+
+  function applyVelocity() {
+    const twist = active ? joystickToTwist(value.x, value.y) : stopTwist;
+    publishCmdVel(twist);
+
+    if (active) {
+      startPublishing();
+    } else {
+      stopPublishing();
+    }
+  }
 
   function updateMaxOffset() {
     const baseSize = baseEl.clientWidth;
     const knobSize = knobEl.clientWidth;
     maxOffset = Math.max(8, (baseSize - knobSize) / 2);
-  }
-
-  function dispatchJoystick() {
-    window.dispatchEvent(
-      new CustomEvent('unitree:joystick', {
-        detail: {
-          x: value.x,
-          y: value.y,
-          active,
-        },
-      }),
-    );
   }
 
   function setKnobOffset(dx, dy) {
@@ -43,7 +84,7 @@
       x: maxOffset ? dx / maxOffset : 0,
       y: maxOffset ? -dy / maxOffset : 0,
     };
-    dispatchJoystick();
+    applyVelocity();
   }
 
   function resetKnob() {
@@ -53,7 +94,7 @@
     active = false;
     pointerId = null;
     joystickEl.classList.remove('is-active');
-    dispatchJoystick();
+    applyVelocity();
   }
 
   function pointerPosition(event) {
@@ -94,6 +135,16 @@
     event.preventDefault();
   }
 
+  function startRobotControl(ros) {
+    if (cmdVelTopic) return;
+
+    cmdVelTopic = new ROSLIB.Topic({
+      ros,
+      name: CMD_VEL_TOPIC,
+      messageType: 'geometry_msgs/msg/Twist',
+    });
+  }
+
   baseEl.addEventListener('pointerdown', onPointerDown);
   baseEl.addEventListener('pointermove', onPointerMove);
   baseEl.addEventListener('pointerup', onPointerUp);
@@ -101,6 +152,7 @@
   window.addEventListener('resize', updateMaxOffset);
   const resizeObserver = new ResizeObserver(updateMaxOffset);
   resizeObserver.observe(baseEl);
-
   updateMaxOffset();
+
+  window.unitreeRobotControl = { start: startRobotControl };
 })();

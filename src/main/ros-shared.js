@@ -207,6 +207,14 @@ async function initMainSensors() {
     } else {
       setLidarStatus('Lidar module not loaded', 'is-error');
     }
+
+    if (window.unitreeRobotControl?.start) {
+      try {
+        window.unitreeRobotControl.start(ros);
+      } catch {
+        // robot control is optional until joystick is used
+      }
+    }
   } catch (error) {
     const message = error.message || 'ROS connection failed';
     window.unitreeCamera?.primary?.setStatus(message, 'is-error');
