@@ -314,14 +314,61 @@ button {
   color: var(--danger);
 }
 
-.joystick {
+.robot-controls {
   position: absolute;
   left: 50%;
   bottom: clamp(8px, 2.5cqmin, 18px);
   z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.5cqmin, 14px);
   transform: translateX(-50%);
+}
+
+.robot-cmd-group {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1.2cqmin, 8px);
+}
+
+.robot-cmd-btn {
+  min-width: clamp(68px, 15cqmin, 92px);
+  padding: clamp(5px, 1.2cqmin, 7px) clamp(8px, 1.8cqmin, 10px);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(7, 11, 16, 0.55);
+  color: rgba(238, 242, 247, 0.78);
+  font-size: clamp(9px, 2.1cqmin, 11px);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.robot-cmd-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(0, 229, 192, 0.35);
+}
+
+.robot-cmd-btn:active,
+.robot-cmd-btn.is-pressed,
+.robot-cmd-btn.is-active {
+  background: rgba(0, 229, 192, 0.12);
+  color: var(--accent);
+  border-color: rgba(0, 229, 192, 0.45);
+}
+
+.robot-controls.is-locked .joystick {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.joystick {
   touch-action: none;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .joystick-base {
