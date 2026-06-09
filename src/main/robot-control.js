@@ -1,37 +1,71 @@
 (function () {
   const CMD_VEL_TOPIC = '/cmd_vel';
   const LINEAR_SPEED = 0.6;
+  const LATERAL_SPEED = 0.4;
   const ANGULAR_SPEED = 1.0;
   const PUBLISH_HZ = 20;
 
   const joystickEl = document.getElementById('move-joystick');
-  if (!joystickEl) return;
+  const baseEl = joystickEl?.querySelector('.joystick-base');
+  const knobEl = joystickEl?.querySelector('.joystick-knob');
 
-  const baseEl = joystickEl.querySelector('.joystick-base');
-  const knobEl = joystickEl.querySelector('.joystick-knob');
-  if (!baseEl || !knobEl) return;
-
-  let active = false;
+  let joystickActive = false;
   let pointerId = null;
   let maxOffset = 0;
-  let value = { x: 0, y: 0 };
+  let joystickValue = { x: 0, y: 0 };
   let cmdVelTopic = null;
   let publishTimer = null;
+  const pressedKeys = new Set();
 
   const stopTwist = {
     linear: { x: 0, y: 0, z: 0 },
     angular: { x: 0, y: 0, z: 0 },
   };
 
-  function joystickToTwist(x, y) {
+  function clamp(value) {
+    return Math.max(-1, Math.min(1, value));
+  }
+
+  function getKeyboardInput() {
+    let forward = 0;
+    let yaw = 0;
+    let lateral = 0;
+
+    if (pressedKeys.has('KeyW')) forward += 1;
+    if (pressedKeys.has('KeyS')) forward -= 1;
+    if (pressedKeys.has('KeyA')) yaw += 1;
+    if (pressedKeys.has('KeyD')) yaw -= 1;
+    if (pressedKeys.has('KeyQ')) lateral += 1;
+    if (pressedKeys.has('KeyE')) lateral -= 1;
+
+    return { forward, yaw, lateral };
+  }
+
+  function buildTwist() {
+    const keyboard = getKeyboardInput();
+    const joyX = joystickActive ? joystickValue.x : 0;
+    const joyY = joystickActive ? joystickValue.y : 0;
+
+    const forward = clamp(joyY + keyboard.forward);
+    const yaw = clamp(-joyX + keyboard.yaw);
+    const lateral = clamp(keyboard.lateral);
+
+    if (!forward && !yaw && !lateral) {
+      return stopTwist;
+    }
+
     return {
       linear: {
-        x: y * LINEAR_SPEED,
-        y: 0,
+        x: forward * LINEAR_SPEED,
+        y: lateral * LATERAL_SPEED,
         z: 0,
       },
-      angular: { x: 0, y: 0, z: -x * ANGULAR_SPEED },
+      angular: { x: 0, y: 0, z: yaw * ANGULAR_SPEED },
     };
+  }
+
+  function isControlActive() {
+    return joystickActive || pressedKeys.size > 0;
   }
 
   function publishCmdVel(twist) {
@@ -49,15 +83,14 @@
   function startPublishing() {
     if (publishTimer || !cmdVelTopic) return;
     publishTimer = window.setInterval(() => {
-      publishCmdVel(joystickToTwist(value.x, value.y));
+      publishCmdVel(buildTwist());
     }, 1000 / PUBLISH_HZ);
   }
 
   function applyVelocity() {
-    const twist = active ? joystickToTwist(value.x, value.y) : stopTwist;
-    publishCmdVel(twist);
+    publishCmdVel(buildTwist());
 
-    if (active) {
+    if (isControlActive()) {
       startPublishing();
     } else {
       stopPublishing();
@@ -65,12 +98,15 @@
   }
 
   function updateMaxOffset() {
+    if (!baseEl || !knobEl) return;
     const baseSize = baseEl.clientWidth;
     const knobSize = knobEl.clientWidth;
     maxOffset = Math.max(8, (baseSize - knobSize) / 2);
   }
 
   function setKnobOffset(dx, dy) {
+    if (!knobEl) return;
+
     const distance = Math.hypot(dx, dy);
     if (distance > maxOffset) {
       const scale = maxOffset / distance;
@@ -80,7 +116,7 @@
 
     knobEl.style.left = `calc(50% + ${dx}px)`;
     knobEl.style.top = `calc(50% + ${dy}px)`;
-    value = {
+    joystickValue = {
       x: maxOffset ? dx / maxOffset : 0,
       y: maxOffset ? -dy / maxOffset : 0,
     };
@@ -88,12 +124,14 @@
   }
 
   function resetKnob() {
-    knobEl.style.left = '50%';
-    knobEl.style.top = '50%';
-    value = { x: 0, y: 0 };
-    active = false;
+    if (knobEl) {
+      knobEl.style.left = '50%';
+      knobEl.style.top = '50%';
+    }
+    joystickValue = { x: 0, y: 0 };
+    joystickActive = false;
     pointerId = null;
-    joystickEl.classList.remove('is-active');
+    joystickEl?.classList.remove('is-active');
     applyVelocity();
   }
 
@@ -108,8 +146,8 @@
   }
 
   function onPointerDown(event) {
-    if (active) return;
-    active = true;
+    if (!baseEl || joystickActive) return;
+    joystickActive = true;
     pointerId = event.pointerId;
     joystickEl.classList.add('is-active');
     updateMaxOffset();
@@ -120,19 +158,51 @@
   }
 
   function onPointerMove(event) {
-    if (!active || event.pointerId !== pointerId) return;
+    if (!joystickActive || event.pointerId !== pointerId) return;
     const { dx, dy } = pointerPosition(event);
     setKnobOffset(dx, dy);
     event.preventDefault();
   }
 
   function onPointerUp(event) {
-    if (!active || event.pointerId !== pointerId) return;
+    if (!joystickActive || event.pointerId !== pointerId) return;
     if (baseEl.hasPointerCapture(event.pointerId)) {
       baseEl.releasePointerCapture(event.pointerId);
     }
     resetKnob();
     event.preventDefault();
+  }
+
+  function isTypingTarget(target) {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+  }
+
+  function onKeyDown(event) {
+    if (isTypingTarget(event.target)) return;
+    if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
+
+    if (!pressedKeys.has(event.code)) {
+      pressedKeys.add(event.code);
+      applyVelocity();
+    }
+    event.preventDefault();
+  }
+
+  function onKeyUp(event) {
+    if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
+
+    if (pressedKeys.delete(event.code)) {
+      applyVelocity();
+    }
+    event.preventDefault();
+  }
+
+  function clearKeyboard() {
+    if (!pressedKeys.size) return;
+    pressedKeys.clear();
+    applyVelocity();
   }
 
   function startRobotControl(ros) {
@@ -145,14 +215,20 @@
     });
   }
 
-  baseEl.addEventListener('pointerdown', onPointerDown);
-  baseEl.addEventListener('pointermove', onPointerMove);
-  baseEl.addEventListener('pointerup', onPointerUp);
-  baseEl.addEventListener('pointercancel', onPointerUp);
-  window.addEventListener('resize', updateMaxOffset);
-  const resizeObserver = new ResizeObserver(updateMaxOffset);
-  resizeObserver.observe(baseEl);
-  updateMaxOffset();
+  if (baseEl && knobEl) {
+    baseEl.addEventListener('pointerdown', onPointerDown);
+    baseEl.addEventListener('pointermove', onPointerMove);
+    baseEl.addEventListener('pointerup', onPointerUp);
+    baseEl.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('resize', updateMaxOffset);
+    const resizeObserver = new ResizeObserver(updateMaxOffset);
+    resizeObserver.observe(baseEl);
+    updateMaxOffset();
+  }
+
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', clearKeyboard);
 
   window.unitreeRobotControl = { start: startRobotControl };
 })();
