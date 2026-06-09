@@ -314,6 +314,116 @@ button {
   color: var(--danger);
 }
 
+.joystick {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(8px, 2.5cqmin, 18px);
+  z-index: 4;
+  transform: translateX(-50%);
+  touch-action: none;
+  user-select: none;
+}
+
+.joystick-base {
+  position: relative;
+  width: clamp(72px, 22cqmin, 132px);
+  height: clamp(72px, 22cqmin, 132px);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: rgba(7, 11, 16, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.joystick-base::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 1px;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  background: rgba(143, 143, 143, 0.14);
+  pointer-events: none;
+}
+
+.joystick-base::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 100%;
+  height: 1px;
+  transform: translate(-50%, -50%);
+  background: rgba(143, 143, 143, 0.14);
+  pointer-events: none;
+}
+
+.joystick-arrow {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 14%;
+  height: 14%;
+  color: rgba(238, 242, 247, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.joystick-arrow svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.joystick-arrow-up {
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.joystick-arrow-down {
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.joystick-arrow-left {
+  left: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.joystick-arrow-right {
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.joystick.is-active .joystick-arrow {
+  color: rgba(0, 229, 192, 0.55);
+}
+
+.joystick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(0, 229, 192, 0.35);
+  border-radius: 50%;
+  background: rgba(7, 11, 16, 0.85);
+  box-shadow: 0 0 10px rgba(0, 229, 192, 0.15);
+  cursor: grab;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  will-change: left, top;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+}
+
+.joystick.is-active .joystick-knob {
+  cursor: grabbing;
+  border-color: rgba(0, 229, 192, 0.65);
+  box-shadow: 0 0 14px rgba(0, 229, 192, 0.28);
+}
+
 .hidden {
   display: none;
 }

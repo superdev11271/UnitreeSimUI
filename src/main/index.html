@@ -59,6 +59,23 @@
               <canvas id="pip-camera-canvas" aria-label="Picture-in-picture camera feed"></canvas>
             </div>
             <p class="camera-status" id="front-camera-status">Waiting for camera…</p>
+            <div class="joystick" id="move-joystick" aria-label="Robot move joystick">
+              <div class="joystick-base">
+                <span class="joystick-arrow joystick-arrow-up" aria-hidden="true">
+                  <svg viewBox="0 0 12 12"><path d="M6 2.5 10 8H2z" /></svg>
+                </span>
+                <span class="joystick-arrow joystick-arrow-down" aria-hidden="true">
+                  <svg viewBox="0 0 12 12"><path d="M6 9.5 2 4h8z" /></svg>
+                </span>
+                <span class="joystick-arrow joystick-arrow-left" aria-hidden="true">
+                  <svg viewBox="0 0 12 12"><path d="M2.5 6 8 2v8z" /></svg>
+                </span>
+                <span class="joystick-arrow joystick-arrow-right" aria-hidden="true">
+                  <svg viewBox="0 0 12 12"><path d="M9.5 6 4 2v8z" /></svg>
+                </span>
+                <div class="joystick-knob"></div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -107,6 +124,7 @@
     <script src="camera.js"></script>
     <script src="lidar.js"></script>
     <script src="ros-shared.js"></script>
+    <script src="robot-control.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>
