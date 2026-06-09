@@ -169,15 +169,7 @@ async function connectWithRetry(attempts = 3) {
 }
 
 async function initMainSensors() {
-  const cameraStatus = document.getElementById('front-camera-status');
   const lidarStatus = document.getElementById('lidar-status');
-
-  const setCameraStatus = (text, state) => {
-    if (!cameraStatus) return;
-    cameraStatus.textContent = text;
-    cameraStatus.classList.remove('is-live', 'is-error');
-    if (state) cameraStatus.classList.add(state);
-  };
 
   const setLidarStatus = (text, state) => {
     if (!lidarStatus) return;
@@ -186,7 +178,8 @@ async function initMainSensors() {
     if (state) lidarStatus.classList.add(state);
   };
 
-  setCameraStatus('Connecting…');
+  window.unitreeCamera?.primary?.setStatus('Connecting…');
+  window.unitreeCamera?.third?.setStatus('Connecting…');
   setLidarStatus('Connecting…');
 
   try {
@@ -196,10 +189,13 @@ async function initMainSensors() {
       try {
         window.unitreeCamera.start(ros);
       } catch (error) {
-        setCameraStatus(error.message || 'Camera start failed', 'is-error');
+        const message = error.message || 'Camera start failed';
+        window.unitreeCamera?.primary?.setStatus(message, 'is-error');
+        window.unitreeCamera?.third?.setStatus(message, 'is-error');
       }
     } else {
-      setCameraStatus('Camera module not loaded', 'is-error');
+      window.unitreeCamera?.primary?.setStatus('Camera module not loaded', 'is-error');
+      window.unitreeCamera?.third?.setStatus('Camera module not loaded', 'is-error');
     }
 
     if (window.unitreeLidar?.start) {
@@ -213,7 +209,8 @@ async function initMainSensors() {
     }
   } catch (error) {
     const message = error.message || 'ROS connection failed';
-    setCameraStatus(message, 'is-error');
+    window.unitreeCamera?.primary?.setStatus(message, 'is-error');
+    window.unitreeCamera?.third?.setStatus(message, 'is-error');
     setLidarStatus(message, 'is-error');
   }
 }

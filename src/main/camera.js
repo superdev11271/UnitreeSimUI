@@ -1,35 +1,7 @@
 (function () {
-const CAMERA_TOPICS = {
-  front: {
-    imageTopic: '/camera_front/camera_sensor/image_raw/compressed',
-    infoTopic: '/camera_front/camera_sensor/camera_info',
-    label: 'Front Camera',
-  },
-  back: {
-    imageTopic: '/camera_back/camera_sensor/image_raw/compressed',
-    infoTopic: '/camera_back/camera_sensor/camera_info',
-    label: 'Back Camera',
-  },
-};
-
-const mainCanvas = document.getElementById('main-camera-canvas');
-const pipCanvas = document.getElementById('pip-camera-canvas');
-const mainContainer = document.querySelector('.camera-panel');
-const pipContainer = document.querySelector('.camera-pip');
-const statusEl = document.getElementById('front-camera-status');
-const swapBtn = document.getElementById('camera-swap-btn');
-
-let mainCameraKey = 'front';
-let frontStream = null;
-let backStream = null;
-
 function toUint8Array(data) {
-  if (data instanceof Uint8Array) {
-    return data;
-  }
-  if (Array.isArray(data)) {
-    return new Uint8Array(data);
-  }
+  if (data instanceof Uint8Array) return data;
+  if (Array.isArray(data)) return new Uint8Array(data);
   if (typeof data === 'string') {
     const binary = atob(data);
     const bytes = new Uint8Array(binary.length);
@@ -42,15 +14,11 @@ function toUint8Array(data) {
 }
 
 function drawCover(destCtx, destCanvas, source, destWidth, destHeight) {
-  if (destWidth <= 0 || destHeight <= 0) {
-    return;
-  }
+  if (destWidth <= 0 || destHeight <= 0) return;
 
   const sourceWidth = source.width;
   const sourceHeight = source.height;
-  if (!sourceWidth || !sourceHeight) {
-    return;
-  }
+  if (!sourceWidth || !sourceHeight) return;
 
   destCanvas.width = destWidth;
   destCanvas.height = destHeight;
@@ -64,8 +32,17 @@ function drawCover(destCtx, destCanvas, source, destWidth, destHeight) {
   destCtx.drawImage(source, 0, 0, sourceWidth, sourceHeight, offsetX, offsetY, drawWidth, drawHeight);
 }
 
-function createCameraStream({ imageTopic, infoTopic, onLive }) {
-  if (!mainCanvas || !mainContainer || !pipContainer) {
+function createCameraStream({
+  imageTopic,
+  infoTopic,
+  mainCanvas,
+  pipCanvas,
+  mainContainer,
+  pipContainer,
+  onLive,
+  onError,
+}) {
+  if (!mainCanvas || !pipCanvas || !mainContainer || !pipContainer) {
     return {
       subscribe() {},
       setRenderTarget() {},
@@ -90,9 +67,7 @@ function createCameraStream({ imageTopic, infoTopic, onLive }) {
   }
 
   function renderFrame() {
-    if (!hasFrame) {
-      return;
-    }
+    if (!hasFrame) return;
 
     const { width, height } = getContainerSize();
     drawCover(ctx, canvas, sourceCanvas, width, height);
@@ -118,9 +93,7 @@ function createCameraStream({ imageTopic, infoTopic, onLive }) {
   function drawCompressedImage(message) {
     const { format, data } = message;
     const bytes = toUint8Array(data);
-    if (!bytes.length) {
-      return;
-    }
+    if (!bytes.length) return;
 
     const normalizedFormat = String(format || '').toLowerCase();
     let mime = 'image/jpeg';
@@ -151,7 +124,7 @@ function createCameraStream({ imageTopic, infoTopic, onLive }) {
       renderFrame();
     };
     img.onerror = () => {
-      setStatus('Failed to decode compressed image', 'is-error');
+      if (onError) onError('Failed to decode compressed image', 'is-error');
     };
     img.src = lastObjectUrl;
   }
@@ -162,7 +135,6 @@ function createCameraStream({ imageTopic, infoTopic, onLive }) {
       name: infoTopic,
       messageType: 'sensor_msgs/msg/CameraInfo',
     });
-
     info.subscribe(() => {});
 
     const image = new ROSLIB.Topic({
@@ -170,7 +142,6 @@ function createCameraStream({ imageTopic, infoTopic, onLive }) {
       name: imageTopic,
       messageType: 'sensor_msgs/msg/CompressedImage',
     });
-
     image.subscribe((message) => {
       drawCompressedImage(message);
     });
@@ -179,76 +150,154 @@ function createCameraStream({ imageTopic, infoTopic, onLive }) {
   return { subscribe, setRenderTarget, renderFrame };
 }
 
-function setStatus(text, state) {
-  if (!statusEl) return;
-  statusEl.textContent = text;
-  statusEl.classList.remove('is-live', 'is-error');
-  if (state) {
-    statusEl.classList.add(state);
+function createCameraPanel({ topics, defaultMainKey, elements }) {
+  const {
+    mainCanvas,
+    pipCanvas,
+    panelContainer,
+    pipContainer,
+    statusEl,
+    swapBtn,
+  } = elements;
+
+  let mainCameraKey = defaultMainKey;
+  let frontStream = null;
+  let backStream = null;
+
+  function setStatus(text, state) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.classList.remove('is-live', 'is-error');
+    if (state) statusEl.classList.add(state);
   }
-}
 
-function applyCameraLayout() {
-  if (!frontStream || !backStream || !mainCanvas || !pipCanvas || !mainContainer || !pipContainer) {
-    return;
+  function applyLayout() {
+    if (!frontStream || !backStream || !mainCanvas || !pipCanvas || !panelContainer || !pipContainer) {
+      return;
+    }
+
+    const pipCameraKey = mainCameraKey === 'front' ? 'back' : 'front';
+
+    if (mainCameraKey === 'front') {
+      frontStream.setRenderTarget(mainCanvas, panelContainer);
+      backStream.setRenderTarget(pipCanvas, pipContainer);
+    } else {
+      backStream.setRenderTarget(mainCanvas, panelContainer);
+      frontStream.setRenderTarget(pipCanvas, pipContainer);
+    }
+
+    if (swapBtn) {
+      swapBtn.setAttribute('aria-label', `Show ${topics[pipCameraKey].label.toLowerCase()} as main`);
+    }
+
+    frontStream.renderFrame();
+    backStream.renderFrame();
   }
 
-  const pipCameraKey = mainCameraKey === 'front' ? 'back' : 'front';
+  function swapMainCamera() {
+    mainCameraKey = mainCameraKey === 'front' ? 'back' : 'front';
+    applyLayout();
+  }
 
-  if (mainCameraKey === 'front') {
-    frontStream.setRenderTarget(mainCanvas, mainContainer);
-    backStream.setRenderTarget(pipCanvas, pipContainer);
-  } else {
-    backStream.setRenderTarget(mainCanvas, mainContainer);
-    frontStream.setRenderTarget(pipCanvas, pipContainer);
+  function start(ros) {
+    if (!mainCanvas || !pipCanvas || !panelContainer || !pipContainer) {
+      setStatus('Camera panel not ready', 'is-error');
+      return;
+    }
+
+    const streamElements = {
+      mainCanvas,
+      pipCanvas,
+      mainContainer: panelContainer,
+      pipContainer,
+      onError: setStatus,
+    };
+
+    frontStream = createCameraStream({
+      ...topics.front,
+      ...streamElements,
+      onLive: (label) => {
+        if (mainCameraKey === 'front') setStatus(label, 'is-live');
+      },
+    });
+
+    backStream = createCameraStream({
+      ...topics.back,
+      ...streamElements,
+      onLive: (label) => {
+        if (mainCameraKey === 'back') setStatus(label, 'is-live');
+      },
+    });
+
+    frontStream.subscribe(ros);
+    backStream.subscribe(ros);
+    applyLayout();
+    setStatus(`Subscribed · ${topics[mainCameraKey].imageTopic}`, null);
   }
 
   if (swapBtn) {
-    swapBtn.setAttribute('aria-label', `Show ${CAMERA_TOPICS[pipCameraKey].label.toLowerCase()} as main`);
+    swapBtn.addEventListener('click', swapMainCamera);
   }
 
-  frontStream.renderFrame();
-  backStream.renderFrame();
+  return { start, setStatus };
 }
 
-function swapMainCamera() {
-  mainCameraKey = mainCameraKey === 'front' ? 'back' : 'front';
-  applyCameraLayout();
-}
+const primaryPanel = createCameraPanel({
+  defaultMainKey: 'front',
+  topics: {
+    front: {
+      imageTopic: '/camera_front/camera_sensor/image_raw/compressed',
+      infoTopic: '/camera_front/camera_sensor/camera_info',
+      label: 'Front Camera',
+    },
+    back: {
+      imageTopic: '/camera_back/camera_sensor/image_raw/compressed',
+      infoTopic: '/camera_back/camera_sensor/camera_info',
+      label: 'Back Camera',
+    },
+  },
+  elements: {
+    mainCanvas: document.getElementById('main-camera-canvas'),
+    pipCanvas: document.getElementById('pip-camera-canvas'),
+    panelContainer: document.querySelector('[data-panel="1"] .camera-panel'),
+    pipContainer: document.querySelector('[data-panel="1"] .camera-pip'),
+    statusEl: document.getElementById('front-camera-status'),
+    swapBtn: document.getElementById('camera-swap-btn'),
+  },
+});
+
+const thirdPanel = createCameraPanel({
+  defaultMainKey: 'back',
+  topics: {
+    front: {
+      imageTopic: '/camera_third_front/camera_sensor/image_raw/compressed',
+      infoTopic: '/camera_third_front/camera_sensor/camera_info',
+      label: 'Third Front Camera',
+    },
+    back: {
+      imageTopic: '/camera_third_back/camera_sensor/image_raw/compressed',
+      infoTopic: '/camera_third_back/camera_sensor/camera_info',
+      label: 'Third Back Camera',
+    },
+  },
+  elements: {
+    mainCanvas: document.getElementById('third-main-camera-canvas'),
+    pipCanvas: document.getElementById('third-pip-camera-canvas'),
+    panelContainer: document.querySelector('[data-panel="3"] .camera-panel'),
+    pipContainer: document.querySelector('[data-panel="3"] .camera-pip'),
+    statusEl: document.getElementById('third-camera-status'),
+    swapBtn: document.getElementById('third-camera-swap-btn'),
+  },
+});
 
 function startCameras(ros) {
-  if (!mainCanvas || !pipCanvas || !mainContainer || !pipContainer) {
-    setStatus('Camera panel not ready', 'is-error');
-    return;
-  }
-
-  frontStream = createCameraStream({
-    ...CAMERA_TOPICS.front,
-    onLive: (label) => {
-      if (mainCameraKey === 'front') {
-        setStatus(label, 'is-live');
-      }
-    },
-  });
-
-  backStream = createCameraStream({
-    ...CAMERA_TOPICS.back,
-    onLive: (label) => {
-      if (mainCameraKey === 'back') {
-        setStatus(label, 'is-live');
-      }
-    },
-  });
-
-  frontStream.subscribe(ros);
-  backStream.subscribe(ros);
-  applyCameraLayout();
-  setStatus(`Subscribed · ${CAMERA_TOPICS[mainCameraKey].imageTopic}`, null);
+  primaryPanel.start(ros);
+  thirdPanel.start(ros);
 }
 
-if (swapBtn) {
-  swapBtn.addEventListener('click', swapMainCamera);
-}
-
-window.unitreeCamera = { start: startCameras };
+window.unitreeCamera = {
+  start: startCameras,
+  primary: primaryPanel,
+  third: thirdPanel,
+};
 })();

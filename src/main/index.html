@@ -74,11 +74,21 @@
         </section>
 
         <section class="sub-panel" data-panel="3">
-          <div class="sub-panel-body">
+          <div class="sub-panel-body camera-panel">
             <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
               <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
               <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
             </button>
+            <canvas id="third-main-camera-canvas" aria-label="Third main camera feed"></canvas>
+            <div class="camera-pip">
+              <button class="camera-swap-btn" id="third-camera-swap-btn" type="button" aria-label="Swap third camera">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M5 2.5 2.5 5l2.5 2.5M11 13.5l2.5-2.5-2.5-2.5M2.75 5h10.5M13.25 11H2.75" />
+                </svg>
+              </button>
+              <canvas id="third-pip-camera-canvas" aria-label="Third picture-in-picture camera feed"></canvas>
+            </div>
+            <p class="camera-status" id="third-camera-status">Waiting for camera…</p>
           </div>
         </section>
 
