@@ -2,6 +2,10 @@
 const LIDAR_TOPIC = '/rslidar_points';
 const DEFAULT_MESSAGE_TYPE = 'sensor_msgs/msg/PointCloud2';
 const MAX_POINTS_PER_FRAME = 20000;
+const LIDAR_MIN_RANGE_M = 0.2;
+const LIDAR_MIN_INTENSITY = 1;
+const LIDAR_MAX_RANGE_M = 200;
+const LIDAR_MAX_RANGE_MARGIN_M = 0.5;
 
 const canvas = document.getElementById('lidar-canvas');
 const container = document.querySelector('.lidar-panel');
@@ -65,17 +69,70 @@ function readFieldValue(dataView, base, field, littleEndian) {
 
   if (offset < 0 || offset >= dataView.byteLength) return Number.NaN;
 
-  if (datatype === 8) {
-    if (offset + 8 > dataView.byteLength) return Number.NaN;
-    return dataView.getFloat64(offset, littleEndian);
+  switch (datatype) {
+    case 1:
+      return dataView.getInt8(offset);
+    case 2:
+      return dataView.getUint8(offset);
+    case 3:
+      if (offset + 2 > dataView.byteLength) return Number.NaN;
+      return dataView.getInt16(offset, littleEndian);
+    case 4:
+      if (offset + 2 > dataView.byteLength) return Number.NaN;
+      return dataView.getUint16(offset, littleEndian);
+    case 5:
+      if (offset + 4 > dataView.byteLength) return Number.NaN;
+      return dataView.getInt32(offset, littleEndian);
+    case 6:
+      if (offset + 4 > dataView.byteLength) return Number.NaN;
+      return dataView.getUint32(offset, littleEndian);
+    case 7:
+      if (offset + 4 > dataView.byteLength) return Number.NaN;
+      return dataView.getFloat32(offset, littleEndian);
+    case 8:
+      if (offset + 8 > dataView.byteLength) return Number.NaN;
+      return dataView.getFloat64(offset, littleEndian);
+    default:
+      return Number.NaN;
+  }
+}
+
+function findIntensityField(fields) {
+  return findField(fields, 'intensity') || findField(fields, 'i');
+}
+
+function isMaxRangePoint(range, intensity, hasIntensityField, frameMaxRange) {
+  const nearConfiguredMax = range >= LIDAR_MAX_RANGE_M - LIDAR_MAX_RANGE_MARGIN_M;
+  if (nearConfiguredMax) {
+    return true;
   }
 
-  if (datatype === 7 || datatype === 2) {
-    if (offset + 4 > dataView.byteLength) return Number.NaN;
-    return dataView.getFloat32(offset, littleEndian);
+  const nearFrameMax = range >= frameMaxRange - LIDAR_MAX_RANGE_MARGIN_M;
+  if (!nearFrameMax) {
+    return false;
   }
 
-  return Number.NaN;
+  if (hasIntensityField && Number.isFinite(intensity) && intensity < LIDAR_MIN_INTENSITY) {
+    return true;
+  }
+
+  return frameMaxRange >= LIDAR_MAX_RANGE_M - LIDAR_MAX_RANGE_MARGIN_M;
+}
+
+function shouldKeepLidarPoint(range, intensity, hasIntensityField, frameMaxRange) {
+  if (!Number.isFinite(range) || range < LIDAR_MIN_RANGE_M) {
+    return false;
+  }
+
+  if (hasIntensityField && Number.isFinite(intensity) && intensity < LIDAR_MIN_INTENSITY) {
+    return false;
+  }
+
+  if (isMaxRangePoint(range, intensity, hasIntensityField, frameMaxRange)) {
+    return false;
+  }
+
+  return true;
 }
 
 function rosToScene(x, y, z) {
@@ -111,6 +168,8 @@ function parsePointCloud2(message) {
   const xField = findField(fields, 'x');
   const yField = findField(fields, 'y');
   const zField = findField(fields, 'z');
+  const intensityField = findIntensityField(fields);
+  const hasIntensityField = Boolean(intensityField);
   if (!xField || !yField) {
     const names = fields.map((field) => field.name).join(', ');
     return { points: [], reason: `missing x/y fields (${names || 'none'})` };
@@ -118,8 +177,9 @@ function parsePointCloud2(message) {
 
   const littleEndian = !isBigEndian;
   const dataView = toDataView(bytes);
-  const points = [];
   const stride = Math.max(1, Math.ceil(pointCount / MAX_POINTS_PER_FRAME));
+  const samples = [];
+  let frameMaxRange = 0;
 
   for (let i = 0; i < pointCount; i += stride) {
     const base = i * pointStep;
@@ -128,6 +188,9 @@ function parsePointCloud2(message) {
     let x = readFieldValue(dataView, base, xField, littleEndian);
     let y = readFieldValue(dataView, base, yField, littleEndian);
     let z = zField ? readFieldValue(dataView, base, zField, littleEndian) : 0;
+    const intensity = hasIntensityField
+      ? readFieldValue(dataView, base, intensityField, littleEndian)
+      : Number.NaN;
 
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
 
@@ -137,11 +200,28 @@ function parsePointCloud2(message) {
       z /= 1000;
     }
 
-    points.push(rosToScene(x, y, z));
+    const range = Math.hypot(x, y, z);
+    if (!Number.isFinite(range) || range < LIDAR_MIN_RANGE_M) continue;
+
+    frameMaxRange = Math.max(frameMaxRange, range);
+    samples.push({ x, y, z, intensity, range });
+  }
+
+  if (!samples.length) {
+    return { points: [], reason: `parsed 0 valid points from ${pointCount}` };
+  }
+
+  const points = [];
+  for (const sample of samples) {
+    if (!shouldKeepLidarPoint(sample.range, sample.intensity, hasIntensityField, frameMaxRange)) {
+      continue;
+    }
+
+    points.push(rosToScene(sample.x, sample.y, sample.z));
   }
 
   if (!points.length) {
-    return { points: [], reason: `parsed 0 valid points from ${pointCount}` };
+    return { points: [], reason: `all ${samples.length} points filtered as invalid/max-range` };
   }
 
   return { points, reason: null };
