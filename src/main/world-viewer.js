@@ -18,6 +18,7 @@ const container = document.querySelector('[data-panel="4"] .world-viewer-host');
 const statusEl = document.getElementById('world-status');
 const viewModeBtn = document.getElementById('world-view-mode-btn');
 const focusRobotBtn = document.getElementById('world-focus-robot-btn');
+const followBtn = document.getElementById('world-follow-btn');
 
 function setStatus(text, state) {
   if (!statusEl) return;
@@ -172,6 +173,9 @@ class WorldViewer {
     this.controls.addEventListener('start', (event) => {
       if (event?.mode === 'pan') {
         this.orbitAroundRobot = false;
+        if (this.followMode) {
+          this.setFollowMode(false);
+        }
       }
     });
     this.renderer.domElement.addEventListener('pointerdown', this.onOrbitPointerDown, true);
@@ -199,9 +203,11 @@ class WorldViewer {
     this.poseTopic = null;
     this.hasPose = false;
     this.orbitAroundRobot = false;
+    this.followMode = false;
     this.meshes = [];
     this.transparentView = false;
     this._ndc = new THREE.Vector2();
+    this._followDelta = new THREE.Vector3();
     this._raycaster = new THREE.Raycaster();
     this._plane = new THREE.Plane();
     this._viewDir = new THREE.Vector3();
@@ -247,6 +253,48 @@ class WorldViewer {
         this.transparentView ? 'true' : 'false',
       );
     }
+  }
+
+  updateFollowButton() {
+    if (!followBtn) return;
+
+    followBtn.classList.toggle('is-follow', this.followMode);
+    followBtn.setAttribute(
+      'aria-label',
+      this.followMode ? 'Normal camera mode' : 'Follow robot',
+    );
+    followBtn.setAttribute(
+      'aria-pressed',
+      this.followMode ? 'true' : 'false',
+    );
+  }
+
+  applyFollowMode() {
+    if (!this.followMode || !this.hasPose) return;
+
+    const robotPosition = this.robotMarker.position;
+    this._followDelta.copy(robotPosition).sub(this.controls.target);
+    if (this._followDelta.lengthSq() === 0) return;
+
+    this.controls.target.copy(robotPosition);
+    this.camera.position.add(this._followDelta);
+  }
+
+  setFollowMode(enabled) {
+    this.followMode = enabled;
+
+    if (enabled) {
+      this.orbitAroundRobot = true;
+      if (this.hasPose) {
+        this.applyFollowMode();
+      }
+    }
+
+    this.updateFollowButton();
+  }
+
+  toggleFollowMode() {
+    this.setFollowMode(!this.followMode);
   }
 
   focusOnRobot() {
@@ -313,7 +361,7 @@ class WorldViewer {
   onOrbitPointerDown(event) {
     if (event.button !== 0) return;
 
-    if (this.orbitAroundRobot && this.hasPose) {
+    if ((this.followMode || this.orbitAroundRobot) && this.hasPose) {
       this.controls.target.copy(this.robotMarker.position);
       return;
     }
@@ -366,6 +414,9 @@ class WorldViewer {
     this.robotMarker.visible = true;
     this.hasPose = true;
     this.updateRobotAxesScreenScale();
+    if (this.followMode) {
+      this.applyFollowMode();
+    }
     this.updateLiveStatus(position);
   }
 
@@ -435,6 +486,7 @@ class WorldViewer {
   }
 
   render() {
+    this.applyFollowMode();
     this.updateRobotAxesScreenScale();
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
@@ -465,6 +517,9 @@ if (container) {
   });
   viewModeBtn?.addEventListener('click', () => {
     viewer.toggleViewMode();
+  });
+  followBtn?.addEventListener('click', () => {
+    viewer.toggleFollowMode();
   });
   window.unitreeWorld = { start: (ros) => viewer.startPose(ros) };
 } else {

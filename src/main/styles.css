@@ -612,7 +612,8 @@ button {
   height: 14px;
 }
 
-.world-view-icon-btn .world-view-icon-outline {
+.world-view-icon-btn .world-view-icon-outline,
+.world-view-icon-btn .world-view-icon-follow {
   display: none;
 }
 
@@ -624,13 +625,22 @@ button {
   display: block;
 }
 
+.world-view-icon-btn.is-follow .world-view-icon-free {
+  display: none;
+}
+
+.world-view-icon-btn.is-follow .world-view-icon-follow {
+  display: block;
+}
+
 .world-view-icon-btn:hover:not(:disabled) {
   background: rgba(7, 11, 16, 0.58);
   color: var(--text-primary);
   border-color: rgba(0, 229, 192, 0.35);
 }
 
-.world-view-icon-btn.is-transparent {
+.world-view-icon-btn.is-transparent,
+.world-view-icon-btn.is-follow {
   background: rgba(0, 229, 192, 0.1);
   color: var(--accent);
   border-color: rgba(0, 229, 192, 0.45);
