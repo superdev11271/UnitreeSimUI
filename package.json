@@ -4,8 +4,9 @@
   "description": "Unitree B2 Gazebo simulation desktop UI",
   "main": "electron/main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --enable-logging"
+    "build:world-viewer": "esbuild src/main/world-viewer.js --bundle --format=iife --outfile=src/main/world-viewer.bundle.js --platform=browser",
+    "start": "npm run build:world-viewer && electron .",
+    "dev": "npm run build:world-viewer && electron . --enable-logging"
   },
   "keywords": [
     "unitree",
@@ -18,9 +19,11 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^35.0.0"
+    "electron": "^35.0.0",
+    "esbuild": "^0.28.0"
   },
   "dependencies": {
-    "roslib": "^1.3.0"
+    "roslib": "^1.3.0",
+    "three": "^0.184.0"
   }
 }

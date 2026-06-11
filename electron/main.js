@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 
 let launchWindow = null;
@@ -122,6 +123,10 @@ ipcMain.handle('window:close', (event) => {
 });
 
 ipcMain.handle('connection:get-settings', () => connectionSettings);
+
+ipcMain.handle('assets:read-world-model', () => (
+  fs.readFileSync(path.join(__dirname, '../src/assets/world.glb'))
+));
 
 ipcMain.handle('simulator:launch', async (_event, options) => {
   connectionSettings = options;

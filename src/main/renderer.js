@@ -21,6 +21,13 @@ function startTitlebarClock() {
 
 startTitlebarClock();
 
+window.addEventListener('unhandledrejection', (event) => {
+  const status = document.getElementById('world-status');
+  if (!status || !status.textContent.startsWith('Loading world model')) return;
+  status.textContent = event.reason?.message || 'World viewer failed to start';
+  status.classList.add('is-error');
+});
+
 document.getElementById('btn-reset-simulation')?.addEventListener('click', () => {
   window.unitreeRobotControl?.publishResetSimulation();
 });

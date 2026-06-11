@@ -565,3 +565,79 @@ button {
 .lidar-status.is-error {
   color: var(--danger);
 }
+
+.world-panel {
+  overflow: hidden;
+  background: #000;
+}
+
+.world-viewer-host {
+  position: absolute;
+  inset: 0;
+}
+
+.world-viewer-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.world-view-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(7, 11, 16, 0.42);
+  color: rgba(238, 242, 247, 0.7);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.world-view-btn:hover:not(:disabled) {
+  background: rgba(7, 11, 16, 0.58);
+  color: var(--text-primary);
+  border-color: rgba(0, 229, 192, 0.35);
+}
+
+.world-view-btn.is-active {
+  background: rgba(0, 229, 192, 0.1);
+  color: var(--accent);
+  border-color: rgba(0, 229, 192, 0.45);
+}
+
+.world-view-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.world-status {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(7, 11, 16, 0.72);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.world-status.is-live {
+  color: var(--accent);
+}
+
+.world-status.is-error {
+  color: var(--danger);
+}

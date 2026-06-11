@@ -104,6 +104,11 @@ function connectRos(settings) {
 }
 
 async function handleStart() {
+  if (!window.unitreeSim?.launchSimulator) {
+    showToast('App bridge not ready. Restart the application.');
+    return;
+  }
+
   btnStart.disabled = true;
 
   try {
