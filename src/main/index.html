@@ -130,9 +130,14 @@
               <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
               <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
             </button>
-            <button class="world-view-btn" id="world-view-mode-btn" type="button" disabled>
-              Transparent View
-            </button>
+            <div class="world-view-actions">
+              <button class="world-view-btn" id="world-view-mode-btn" type="button" disabled>
+                Transparent View
+              </button>
+              <button class="world-view-btn" id="world-focus-robot-btn" type="button">
+                Focus Robot
+              </button>
+            </div>
             <div id="world-viewer" class="world-viewer-host" aria-label="World model preview"></div>
             <p class="world-status" id="world-status">Loading world model…</p>
           </div>

@@ -17,6 +17,7 @@ const ROS_TO_THREE_QUAT = new THREE.Quaternion().setFromEuler(
 const container = document.querySelector('[data-panel="4"] .world-viewer-host');
 const statusEl = document.getElementById('world-status');
 const viewModeBtn = document.getElementById('world-view-mode-btn');
+const focusRobotBtn = document.getElementById('world-focus-robot-btn');
 
 function setStatus(text, state) {
   if (!statusEl) return;
@@ -100,9 +101,9 @@ function createRobotMarker() {
   const root = new THREE.Group();
   const axes = new THREE.Group();
   const axisSpecs = [
-    { dir: new THREE.Vector3(1, 0, 0), color: 0xff3b30 },
-    { dir: new THREE.Vector3(0, 1, 0), color: 0x34c759 },
-    { dir: new THREE.Vector3(0, 0, 1), color: 0x007aff },
+    { dir: new THREE.Vector3(1, 0, 0), color: 0xff0000 },
+    { dir: new THREE.Vector3(0, 1, 0), color: 0x00ff00 },
+    { dir: new THREE.Vector3(0, 0, 1), color: 0x0000ff },
   ];
 
   for (const spec of axisSpecs) {
@@ -114,19 +115,32 @@ function createRobotMarker() {
       AXIS_BASE_LENGTH * 0.18,
       AXIS_BASE_LENGTH * 0.1,
     );
-    for (const part of [arrow.line, arrow.cone]) {
-      part.renderOrder = 20;
-      part.material.transparent = false;
-      part.material.opacity = 1;
-      part.material.depthWrite = true;
-      part.material.depthTest = true;
-    }
     axes.add(arrow);
   }
 
   root.add(axes);
   root.visible = false;
   return { root, axes };
+}
+
+function configureRobotAxesMaterials(axes, overlay) {
+  axes.traverse((object) => {
+    if (!object.material) return;
+
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      material.transparent = false;
+      material.opacity = 1;
+      material.depthWrite = !overlay;
+      material.depthTest = !overlay;
+      material.fog = false;
+      if ('toneMapped' in material) {
+        material.toneMapped = false;
+      }
+    }
+
+    object.renderOrder = overlay ? 1000 : 20;
+  });
 }
 
 class WorldViewer {
@@ -155,6 +169,11 @@ class WorldViewer {
       MIDDLE: THREE.MOUSE.PAN,
       RIGHT: THREE.MOUSE.DOLLY,
     };
+    this.controls.addEventListener('start', (event) => {
+      if (event?.mode === 'pan') {
+        this.orbitAroundRobot = false;
+      }
+    });
     this.renderer.domElement.addEventListener('pointerdown', this.onOrbitPointerDown, true);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.55);
@@ -174,10 +193,12 @@ class WorldViewer {
     const robotMarkerParts = createRobotMarker();
     this.robotMarker = robotMarkerParts.root;
     this.robotAxes = robotMarkerParts.axes;
+    configureRobotAxesMaterials(this.robotAxes, false);
     this.scene.add(this.robotMarker);
 
     this.poseTopic = null;
     this.hasPose = false;
+    this.orbitAroundRobot = false;
     this.meshes = [];
     this.transparentView = false;
     this._ndc = new THREE.Vector2();
@@ -185,6 +206,7 @@ class WorldViewer {
     this._plane = new THREE.Plane();
     this._viewDir = new THREE.Vector3();
     this._hitPoint = new THREE.Vector3();
+    this._cameraOffset = new THREE.Vector3();
     this.onOrbitPointerDown = this.onOrbitPointerDown.bind(this);
     this.rafId = null;
     this.onResize = () => this.resize();
@@ -213,14 +235,39 @@ class WorldViewer {
   }
 
   updateViewModeButton() {
-    if (!viewModeBtn) return;
-    viewModeBtn.disabled = this.meshes.length === 0;
-    viewModeBtn.textContent = this.transparentView ? 'Normal View' : 'Transparent View';
-    viewModeBtn.classList.toggle('is-active', this.transparentView);
-    viewModeBtn.setAttribute(
-      'aria-pressed',
-      this.transparentView ? 'true' : 'false',
+    if (viewModeBtn) {
+      viewModeBtn.disabled = this.meshes.length === 0;
+      viewModeBtn.textContent = this.transparentView ? 'Normal View' : 'Transparent View';
+      viewModeBtn.classList.toggle('is-active', this.transparentView);
+      viewModeBtn.setAttribute(
+        'aria-pressed',
+        this.transparentView ? 'true' : 'false',
+      );
+    }
+  }
+
+  focusOnRobot() {
+    if (!this.hasPose) return;
+
+    const robotPosition = this.robotMarker.position;
+    const offset = this._cameraOffset.copy(this.camera.position).sub(this.controls.target);
+
+    if (offset.lengthSq() < 1) {
+      offset.set(6, 4, 6);
+    }
+
+    const distance = THREE.MathUtils.clamp(
+      this.camera.position.distanceTo(robotPosition),
+      4,
+      50,
     );
+    offset.normalize().multiplyScalar(distance);
+
+    this.controls.target.copy(robotPosition);
+    this.camera.position.copy(robotPosition).add(offset);
+    this.orbitAroundRobot = true;
+    configureRobotAxesMaterials(this.robotAxes, this.transparentView);
+    this.controls.update();
   }
 
   setTransparentView(enabled) {
@@ -233,16 +280,7 @@ class WorldViewer {
     }
 
     this.grid.visible = !enabled;
-    this.robotAxes.traverse((object) => {
-      const materials = object.material
-        ? (Array.isArray(object.material) ? object.material : [object.material])
-        : [];
-      for (const material of materials) {
-        material.transparent = false;
-        material.opacity = 1;
-        material.depthWrite = true;
-      }
-    });
+    configureRobotAxesMaterials(this.robotAxes, enabled);
     this.updateViewModeButton();
   }
 
@@ -271,6 +309,12 @@ class WorldViewer {
 
   onOrbitPointerDown(event) {
     if (event.button !== 0) return;
+
+    if (this.orbitAroundRobot && this.hasPose) {
+      this.controls.target.copy(this.robotMarker.position);
+      return;
+    }
+
     this.getViewportCenterWorldPoint(this.controls.target);
   }
 
@@ -413,6 +457,9 @@ class WorldViewer {
 
 if (container) {
   const viewer = new WorldViewer(container);
+  focusRobotBtn?.addEventListener('click', () => {
+    viewer.focusOnRobot();
+  });
   viewModeBtn?.addEventListener('click', () => {
     viewer.toggleViewMode();
   });

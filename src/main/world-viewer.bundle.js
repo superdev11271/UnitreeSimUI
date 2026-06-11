@@ -33842,6 +33842,7 @@ void main() {
   var container = document.querySelector('[data-panel="4"] .world-viewer-host');
   var statusEl = document.getElementById("world-status");
   var viewModeBtn = document.getElementById("world-view-mode-btn");
+  var focusRobotBtn = document.getElementById("world-focus-robot-btn");
   function setStatus(text, state) {
     if (!statusEl) return;
     statusEl.textContent = text;
@@ -33913,9 +33914,9 @@ void main() {
     const root = new Group();
     const axes = new Group();
     const axisSpecs = [
-      { dir: new Vector3(1, 0, 0), color: 16726832 },
-      { dir: new Vector3(0, 1, 0), color: 3458905 },
-      { dir: new Vector3(0, 0, 1), color: 31487 }
+      { dir: new Vector3(1, 0, 0), color: 16711680 },
+      { dir: new Vector3(0, 1, 0), color: 65280 },
+      { dir: new Vector3(0, 0, 1), color: 255 }
     ];
     for (const spec of axisSpecs) {
       const arrow = new ArrowHelper(
@@ -33926,18 +33927,28 @@ void main() {
         AXIS_BASE_LENGTH * 0.18,
         AXIS_BASE_LENGTH * 0.1
       );
-      for (const part of [arrow.line, arrow.cone]) {
-        part.renderOrder = 20;
-        part.material.transparent = false;
-        part.material.opacity = 1;
-        part.material.depthWrite = true;
-        part.material.depthTest = true;
-      }
       axes.add(arrow);
     }
     root.add(axes);
     root.visible = false;
     return { root, axes };
+  }
+  function configureRobotAxesMaterials(axes, overlay) {
+    axes.traverse((object) => {
+      if (!object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        material.transparent = false;
+        material.opacity = 1;
+        material.depthWrite = !overlay;
+        material.depthTest = !overlay;
+        material.fog = false;
+        if ("toneMapped" in material) {
+          material.toneMapped = false;
+        }
+      }
+      object.renderOrder = overlay ? 1e3 : 20;
+    });
   }
   var WorldViewer = class {
     constructor(host) {
@@ -33962,6 +33973,11 @@ void main() {
         MIDDLE: MOUSE.PAN,
         RIGHT: MOUSE.DOLLY
       };
+      this.controls.addEventListener("start", (event) => {
+        if (event?.mode === "pan") {
+          this.orbitAroundRobot = false;
+        }
+      });
       this.renderer.domElement.addEventListener("pointerdown", this.onOrbitPointerDown, true);
       const ambient = new AmbientLight(16777215, 0.55);
       const keyLight = new DirectionalLight(16777215, 1.1);
@@ -33977,9 +33993,11 @@ void main() {
       const robotMarkerParts = createRobotMarker();
       this.robotMarker = robotMarkerParts.root;
       this.robotAxes = robotMarkerParts.axes;
+      configureRobotAxesMaterials(this.robotAxes, false);
       this.scene.add(this.robotMarker);
       this.poseTopic = null;
       this.hasPose = false;
+      this.orbitAroundRobot = false;
       this.meshes = [];
       this.transparentView = false;
       this._ndc = new Vector2();
@@ -33987,6 +34005,7 @@ void main() {
       this._plane = new Plane();
       this._viewDir = new Vector3();
       this._hitPoint = new Vector3();
+      this._cameraOffset = new Vector3();
       this.onOrbitPointerDown = this.onOrbitPointerDown.bind(this);
       this.rafId = null;
       this.onResize = () => this.resize();
@@ -34008,14 +34027,34 @@ void main() {
       });
     }
     updateViewModeButton() {
-      if (!viewModeBtn) return;
-      viewModeBtn.disabled = this.meshes.length === 0;
-      viewModeBtn.textContent = this.transparentView ? "Normal View" : "Transparent View";
-      viewModeBtn.classList.toggle("is-active", this.transparentView);
-      viewModeBtn.setAttribute(
-        "aria-pressed",
-        this.transparentView ? "true" : "false"
+      if (viewModeBtn) {
+        viewModeBtn.disabled = this.meshes.length === 0;
+        viewModeBtn.textContent = this.transparentView ? "Normal View" : "Transparent View";
+        viewModeBtn.classList.toggle("is-active", this.transparentView);
+        viewModeBtn.setAttribute(
+          "aria-pressed",
+          this.transparentView ? "true" : "false"
+        );
+      }
+    }
+    focusOnRobot() {
+      if (!this.hasPose) return;
+      const robotPosition = this.robotMarker.position;
+      const offset = this._cameraOffset.copy(this.camera.position).sub(this.controls.target);
+      if (offset.lengthSq() < 1) {
+        offset.set(6, 4, 6);
+      }
+      const distance = MathUtils.clamp(
+        this.camera.position.distanceTo(robotPosition),
+        4,
+        50
       );
+      offset.normalize().multiplyScalar(distance);
+      this.controls.target.copy(robotPosition);
+      this.camera.position.copy(robotPosition).add(offset);
+      this.orbitAroundRobot = true;
+      configureRobotAxesMaterials(this.robotAxes, this.transparentView);
+      this.controls.update();
     }
     setTransparentView(enabled) {
       this.transparentView = enabled;
@@ -34023,14 +34062,7 @@ void main() {
         mesh.material = enabled ? mesh.userData.transparentMaterials : mesh.userData.normalMaterials;
       }
       this.grid.visible = !enabled;
-      this.robotAxes.traverse((object) => {
-        const materials = object.material ? Array.isArray(object.material) ? object.material : [object.material] : [];
-        for (const material of materials) {
-          material.transparent = false;
-          material.opacity = 1;
-          material.depthWrite = true;
-        }
-      });
+      configureRobotAxesMaterials(this.robotAxes, enabled);
       this.updateViewModeButton();
     }
     toggleViewMode() {
@@ -34053,6 +34085,10 @@ void main() {
     }
     onOrbitPointerDown(event) {
       if (event.button !== 0) return;
+      if (this.orbitAroundRobot && this.hasPose) {
+        this.controls.target.copy(this.robotMarker.position);
+        return;
+      }
       this.getViewportCenterWorldPoint(this.controls.target);
     }
     fitCameraToModel(object) {
@@ -34171,6 +34207,9 @@ void main() {
   };
   if (container) {
     const viewer = new WorldViewer(container);
+    focusRobotBtn?.addEventListener("click", () => {
+      viewer.focusOnRobot();
+    });
     viewModeBtn?.addEventListener("click", () => {
       viewer.toggleViewMode();
     });

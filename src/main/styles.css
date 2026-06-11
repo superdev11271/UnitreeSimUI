@@ -582,11 +582,16 @@ button {
   height: 100%;
 }
 
-.world-view-btn {
+.world-view-actions {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 5;
+  display: flex;
+  gap: 6px;
+}
+
+.world-view-btn {
   height: 28px;
   padding: 0 10px;
   border: 1px solid var(--border);
