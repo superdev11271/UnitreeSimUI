@@ -14143,6 +14143,193 @@
       return new _BoxGeometry(data.width, data.height, data.depth, data.widthSegments, data.heightSegments, data.depthSegments);
     }
   };
+  var CylinderGeometry = class _CylinderGeometry extends BufferGeometry {
+    /**
+     * Constructs a new cylinder geometry.
+     *
+     * @param {number} [radiusTop=1] - Radius of the cylinder at the top.
+     * @param {number} [radiusBottom=1] - Radius of the cylinder at the bottom.
+     * @param {number} [height=1] - Height of the cylinder.
+     * @param {number} [radialSegments=32] - Number of segmented faces around the circumference of the cylinder.
+     * @param {number} [heightSegments=1] - Number of rows of faces along the height of the cylinder.
+     * @param {boolean} [openEnded=false] - Whether the base of the cylinder is open or capped.
+     * @param {number} [thetaStart=0] - Start angle for first segment, in radians.
+     * @param {number} [thetaLength=Math.PI*2] - The central angle, often called theta, of the circular sector, in radians.
+     * The default value results in a complete cylinder.
+     */
+    constructor(radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "CylinderGeometry";
+      this.parameters = {
+        radiusTop,
+        radiusBottom,
+        height,
+        radialSegments,
+        heightSegments,
+        openEnded,
+        thetaStart,
+        thetaLength
+      };
+      const scope = this;
+      radialSegments = Math.floor(radialSegments);
+      heightSegments = Math.floor(heightSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let index = 0;
+      const indexArray = [];
+      const halfHeight = height / 2;
+      let groupStart = 0;
+      generateTorso();
+      if (openEnded === false) {
+        if (radiusTop > 0) generateCap(true);
+        if (radiusBottom > 0) generateCap(false);
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function generateTorso() {
+        const normal = new Vector3();
+        const vertex2 = new Vector3();
+        let groupCount = 0;
+        const slope = (radiusBottom - radiusTop) / height;
+        for (let y = 0; y <= heightSegments; y++) {
+          const indexRow = [];
+          const v = y / heightSegments;
+          const radius = v * (radiusBottom - radiusTop) + radiusTop;
+          for (let x = 0; x <= radialSegments; x++) {
+            const u = x / radialSegments;
+            const theta = u * thetaLength + thetaStart;
+            const sinTheta = Math.sin(theta);
+            const cosTheta = Math.cos(theta);
+            vertex2.x = radius * sinTheta;
+            vertex2.y = -v * height + halfHeight;
+            vertex2.z = radius * cosTheta;
+            vertices.push(vertex2.x, vertex2.y, vertex2.z);
+            normal.set(sinTheta, slope, cosTheta).normalize();
+            normals.push(normal.x, normal.y, normal.z);
+            uvs.push(u, 1 - v);
+            indexRow.push(index++);
+          }
+          indexArray.push(indexRow);
+        }
+        for (let x = 0; x < radialSegments; x++) {
+          for (let y = 0; y < heightSegments; y++) {
+            const a = indexArray[y][x];
+            const b = indexArray[y + 1][x];
+            const c = indexArray[y + 1][x + 1];
+            const d = indexArray[y][x + 1];
+            if (radiusTop > 0 || y !== 0) {
+              indices.push(a, b, d);
+              groupCount += 3;
+            }
+            if (radiusBottom > 0 || y !== heightSegments - 1) {
+              indices.push(b, c, d);
+              groupCount += 3;
+            }
+          }
+        }
+        scope.addGroup(groupStart, groupCount, 0);
+        groupStart += groupCount;
+      }
+      function generateCap(top) {
+        const centerIndexStart = index;
+        const uv = new Vector2();
+        const vertex2 = new Vector3();
+        let groupCount = 0;
+        const radius = top === true ? radiusTop : radiusBottom;
+        const sign = top === true ? 1 : -1;
+        for (let x = 1; x <= radialSegments; x++) {
+          vertices.push(0, halfHeight * sign, 0);
+          normals.push(0, sign, 0);
+          uvs.push(0.5, 0.5);
+          index++;
+        }
+        const centerIndexEnd = index;
+        for (let x = 0; x <= radialSegments; x++) {
+          const u = x / radialSegments;
+          const theta = u * thetaLength + thetaStart;
+          const cosTheta = Math.cos(theta);
+          const sinTheta = Math.sin(theta);
+          vertex2.x = radius * sinTheta;
+          vertex2.y = halfHeight * sign;
+          vertex2.z = radius * cosTheta;
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normals.push(0, sign, 0);
+          uv.x = cosTheta * 0.5 + 0.5;
+          uv.y = sinTheta * 0.5 * sign + 0.5;
+          uvs.push(uv.x, uv.y);
+          index++;
+        }
+        for (let x = 0; x < radialSegments; x++) {
+          const c = centerIndexStart + x;
+          const i = centerIndexEnd + x;
+          if (top === true) {
+            indices.push(i, i + 1, c);
+          } else {
+            indices.push(i + 1, i, c);
+          }
+          groupCount += 3;
+        }
+        scope.addGroup(groupStart, groupCount, top === true ? 1 : 2);
+        groupStart += groupCount;
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {CylinderGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
+    }
+  };
+  var ConeGeometry = class _ConeGeometry extends CylinderGeometry {
+    /**
+     * Constructs a new cone geometry.
+     *
+     * @param {number} [radius=1] - Radius of the cone base.
+     * @param {number} [height=1] - Height of the cone.
+     * @param {number} [radialSegments=32] - Number of segmented faces around the circumference of the cone.
+     * @param {number} [heightSegments=1] - Number of rows of faces along the height of the cone.
+     * @param {boolean} [openEnded=false] - Whether the base of the cone is open or capped.
+     * @param {number} [thetaStart=0] - Start angle for first segment, in radians.
+     * @param {number} [thetaLength=Math.PI*2] - The central angle, often called theta, of the circular sector, in radians.
+     * The default value results in a complete cone.
+     */
+    constructor(radius = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super(0, radius, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength);
+      this.type = "ConeGeometry";
+      this.parameters = {
+        radius,
+        height,
+        radialSegments,
+        heightSegments,
+        openEnded,
+        thetaStart,
+        thetaLength
+      };
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {ConeGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _ConeGeometry(data.radius, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
+    }
+  };
   var PlaneGeometry = class _PlaneGeometry extends BufferGeometry {
     /**
      * Constructs a new plane geometry.
@@ -18420,6 +18607,95 @@
     dispose() {
       this.geometry.dispose();
       this.material.dispose();
+    }
+  };
+  var _axis = /* @__PURE__ */ new Vector3();
+  var _lineGeometry;
+  var _coneGeometry;
+  var ArrowHelper = class extends Object3D {
+    /**
+     * Constructs a new arrow helper.
+     *
+     * @param {Vector3} [dir=(0, 0, 1)] - The (normalized) direction vector.
+     * @param {Vector3} [origin=(0, 0, 0)] - Point at which the arrow starts.
+     * @param {number} [length=1] - Length of the arrow in world units.
+     * @param {(number|Color|string)} [color=0xffff00] - Color of the arrow.
+     * @param {number} [headLength=length*0.2] - The length of the head of the arrow.
+     * @param {number} [headWidth=headLength*0.2] - The width of the head of the arrow.
+     */
+    constructor(dir = new Vector3(0, 0, 1), origin = new Vector3(0, 0, 0), length = 1, color = 16776960, headLength = length * 0.2, headWidth = headLength * 0.2) {
+      super();
+      this.type = "ArrowHelper";
+      if (_lineGeometry === void 0) {
+        _lineGeometry = new BufferGeometry();
+        _lineGeometry.setAttribute("position", new Float32BufferAttribute([0, 0, 0, 0, 1, 0], 3));
+        _coneGeometry = new ConeGeometry(0.5, 1, 5, 1);
+        _coneGeometry.translate(0, -0.5, 0);
+      }
+      this.position.copy(origin);
+      this.line = new Line(_lineGeometry, new LineBasicMaterial({ color, toneMapped: false }));
+      this.line.matrixAutoUpdate = false;
+      this.add(this.line);
+      this.cone = new Mesh(_coneGeometry, new MeshBasicMaterial({ color, toneMapped: false }));
+      this.cone.matrixAutoUpdate = false;
+      this.add(this.cone);
+      this.setDirection(dir);
+      this.setLength(length, headLength, headWidth);
+    }
+    /**
+     * Sets the direction of the helper.
+     *
+     * @param {Vector3} dir - The normalized direction vector.
+     */
+    setDirection(dir) {
+      if (dir.y > 0.99999) {
+        this.quaternion.set(0, 0, 0, 1);
+      } else if (dir.y < -0.99999) {
+        this.quaternion.set(1, 0, 0, 0);
+      } else {
+        _axis.set(dir.z, 0, -dir.x).normalize();
+        const radians = Math.acos(dir.y);
+        this.quaternion.setFromAxisAngle(_axis, radians);
+      }
+    }
+    /**
+     * Sets the length of the helper.
+     *
+     * @param {number} length - Length of the arrow in world units.
+     * @param {number} [headLength=length*0.2] - The length of the head of the arrow.
+     * @param {number} [headWidth=headLength*0.2] - The width of the head of the arrow.
+     */
+    setLength(length, headLength = length * 0.2, headWidth = headLength * 0.2) {
+      this.line.scale.set(1, Math.max(1e-4, length - headLength), 1);
+      this.line.updateMatrix();
+      this.cone.scale.set(headWidth, headLength, headWidth);
+      this.cone.position.y = length;
+      this.cone.updateMatrix();
+    }
+    /**
+     * Sets the color of the helper.
+     *
+     * @param {number|Color|string} color - The color to set.
+     */
+    setColor(color) {
+      this.line.material.color.set(color);
+      this.cone.material.color.set(color);
+    }
+    copy(source) {
+      super.copy(source, false);
+      this.line.copy(source.line);
+      this.cone.copy(source.cone);
+      return this;
+    }
+    /**
+     * Frees the GPU-related resources allocated by this instance. Call this
+     * method whenever this instance is no longer used in your app.
+     */
+    dispose() {
+      this.line.geometry.dispose();
+      this.line.material.dispose();
+      this.cone.geometry.dispose();
+      this.cone.material.dispose();
     }
   };
   var Controls = class extends EventDispatcher {
@@ -33554,8 +33830,15 @@ void main() {
 
   // src/main/world-viewer.js
   var WORLD_MODEL_FALLBACK_URL = "../assets/world.glb";
+  var WORLD_POSE_TOPIC = "/world_pose";
+  var WORLD_POSE_TYPE = "nav_msgs/msg/Odometry";
   var LOAD_TIMEOUT_MS = 15e3;
   var TRANSPARENT_OPACITY = 0.28;
+  var AXIS_BASE_LENGTH = 1;
+  var AXIS_SCREEN_PX = 28;
+  var ROS_TO_THREE_QUAT = new Quaternion().setFromEuler(
+    new Euler(-Math.PI / 2, 0, 0)
+  );
   var container = document.querySelector('[data-panel="4"] .world-viewer-host');
   var statusEl = document.getElementById("world-status");
   var viewModeBtn = document.getElementById("world-view-mode-btn");
@@ -33611,6 +33894,51 @@ void main() {
     transparent.side = DoubleSide;
     return transparent;
   }
+  function rosPoseToThree(pose) {
+    const position = new Vector3(
+      pose.position.x,
+      pose.position.z,
+      -pose.position.y
+    );
+    const orientation = new Quaternion(
+      pose.orientation.x,
+      pose.orientation.y,
+      pose.orientation.z,
+      pose.orientation.w
+    );
+    orientation.premultiply(ROS_TO_THREE_QUAT);
+    return { position, orientation };
+  }
+  function createRobotMarker() {
+    const root = new Group();
+    const axes = new Group();
+    const axisSpecs = [
+      { dir: new Vector3(1, 0, 0), color: 16726832 },
+      { dir: new Vector3(0, 1, 0), color: 3458905 },
+      { dir: new Vector3(0, 0, 1), color: 31487 }
+    ];
+    for (const spec of axisSpecs) {
+      const arrow = new ArrowHelper(
+        spec.dir,
+        new Vector3(0, 0, 0),
+        AXIS_BASE_LENGTH,
+        spec.color,
+        AXIS_BASE_LENGTH * 0.18,
+        AXIS_BASE_LENGTH * 0.1
+      );
+      for (const part of [arrow.line, arrow.cone]) {
+        part.renderOrder = 20;
+        part.material.transparent = false;
+        part.material.opacity = 1;
+        part.material.depthWrite = true;
+        part.material.depthTest = true;
+      }
+      axes.add(arrow);
+    }
+    root.add(axes);
+    root.visible = false;
+    return { root, axes };
+  }
   var WorldViewer = class {
     constructor(host) {
       this.host = host;
@@ -33646,6 +33974,12 @@ void main() {
       this.scene.add(this.grid);
       this.modelRoot = new Group();
       this.scene.add(this.modelRoot);
+      const robotMarkerParts = createRobotMarker();
+      this.robotMarker = robotMarkerParts.root;
+      this.robotAxes = robotMarkerParts.axes;
+      this.scene.add(this.robotMarker);
+      this.poseTopic = null;
+      this.hasPose = false;
       this.meshes = [];
       this.transparentView = false;
       this._ndc = new Vector2();
@@ -33665,7 +33999,7 @@ void main() {
     prepareModelMaterials(root) {
       this.meshes = [];
       root.traverse((object) => {
-        if (!object.isMesh || !object.material) return;
+        if (!object.isMesh || !object.material || object.userData.skipTransparent) return;
         const normalMaterials = cloneMaterialList(object.material);
         const transparentMaterials = Array.isArray(normalMaterials) ? normalMaterials.map(createTransparentMaterial) : createTransparentMaterial(normalMaterials);
         object.userData.normalMaterials = normalMaterials;
@@ -33689,6 +34023,14 @@ void main() {
         mesh.material = enabled ? mesh.userData.transparentMaterials : mesh.userData.normalMaterials;
       }
       this.grid.visible = !enabled;
+      this.robotAxes.traverse((object) => {
+        const materials = object.material ? Array.isArray(object.material) ? object.material : [object.material] : [];
+        for (const material of materials) {
+          material.transparent = false;
+          material.opacity = 1;
+          material.depthWrite = true;
+        }
+      });
       this.updateViewModeButton();
     }
     toggleViewMode() {
@@ -33731,6 +34073,47 @@ void main() {
       this.camera.updateProjectionMatrix();
       this.controls.update();
     }
+    updateRobotAxesScreenScale() {
+      if (!this.robotMarker.visible) return;
+      const distance = this.camera.position.distanceTo(this.robotMarker.position);
+      if (distance <= 0) return;
+      const vFov = this.camera.fov * (Math.PI / 180);
+      const visibleHeight = 2 * Math.tan(vFov / 2) * distance;
+      const scale = AXIS_SCREEN_PX / Math.max(1, this.host.clientHeight) * visibleHeight / AXIS_BASE_LENGTH;
+      this.robotAxes.scale.setScalar(scale);
+    }
+    updateRobotPose(message) {
+      const pose = message?.pose?.pose;
+      if (!pose?.position || !pose?.orientation) return;
+      const { position, orientation } = rosPoseToThree(pose);
+      this.robotMarker.position.copy(position);
+      this.robotMarker.quaternion.copy(orientation);
+      this.robotMarker.visible = true;
+      this.hasPose = true;
+      this.updateRobotAxesScreenScale();
+      this.updateLiveStatus(position);
+    }
+    updateLiveStatus(position) {
+      if (!this.hasPose) return;
+      setStatus(
+        `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)} \xB7 left rotate \xB7 right zoom \xB7 middle pan`,
+        "is-live"
+      );
+    }
+    startPose(ros) {
+      if (!ros || this.poseTopic) return;
+      this.poseTopic = new ROSLIB.Topic({
+        ros,
+        name: WORLD_POSE_TOPIC,
+        messageType: WORLD_POSE_TYPE
+      });
+      this.poseTopic.subscribe((message) => {
+        this.updateRobotPose(message);
+      });
+      if (!this.hasPose) {
+        setStatus(`Subscribed \xB7 ${WORLD_POSE_TOPIC}`, null);
+      }
+    }
     async loadModel() {
       setStatus("Loading world model\u2026");
       this.updateViewModeButton();
@@ -33747,7 +34130,11 @@ void main() {
         this.prepareModelMaterials(this.modelRoot);
         this.setTransparentView(false);
         this.fitCameraToModel(this.modelRoot);
-        setStatus("World model loaded \xB7 left rotate \xB7 right drag zoom \xB7 middle drag pan", "is-live");
+        if (this.hasPose) {
+          this.updateLiveStatus(this.robotMarker.position);
+        } else {
+          setStatus("World model loaded \xB7 waiting for /world_pose", "is-live");
+        }
         this.resize();
       } catch (error2) {
         setStatus(error2?.message || "Failed to load world.glb", "is-error");
@@ -33762,6 +34149,7 @@ void main() {
       this.renderer.setSize(width, height, false);
     }
     render() {
+      this.updateRobotAxesScreenScale();
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
     }
@@ -33774,6 +34162,7 @@ void main() {
     }
     destroy() {
       if (this.rafId) window.cancelAnimationFrame(this.rafId);
+      if (this.poseTopic) this.poseTopic.unsubscribe();
       this.renderer.domElement.removeEventListener("pointerdown", this.onOrbitPointerDown, true);
       this.resizeObserver.disconnect();
       this.controls.dispose();
@@ -33785,6 +34174,7 @@ void main() {
     viewModeBtn?.addEventListener("click", () => {
       viewer.toggleViewMode();
     });
+    window.unitreeWorld = { start: (ros) => viewer.startPose(ros) };
   } else {
     setStatus("World viewer panel not ready", "is-error");
   }

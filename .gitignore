@@ -4,3 +4,7 @@ out/
 *.log
 .DS_Store
 Thumbs.db
+*.obj
+*.mtl
+*.glb
+*.bjx

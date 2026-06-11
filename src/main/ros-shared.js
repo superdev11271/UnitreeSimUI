@@ -215,6 +215,18 @@ async function initMainSensors() {
         // robot control is optional until joystick is used
       }
     }
+
+    if (window.unitreeWorld?.start) {
+      try {
+        window.unitreeWorld.start(ros);
+      } catch (error) {
+        const worldStatus = document.getElementById('world-status');
+        if (worldStatus) {
+          worldStatus.textContent = error.message || 'World pose start failed';
+          worldStatus.classList.add('is-error');
+        }
+      }
+    }
   } catch (error) {
     const message = error.message || 'ROS connection failed';
     window.unitreeCamera?.primary?.setStatus(message, 'is-error');

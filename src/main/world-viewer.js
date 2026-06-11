@@ -3,8 +3,16 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const WORLD_MODEL_FALLBACK_URL = '../assets/world.glb';
+const WORLD_POSE_TOPIC = '/world_pose';
+const WORLD_POSE_TYPE = 'nav_msgs/msg/Odometry';
 const LOAD_TIMEOUT_MS = 15000;
 const TRANSPARENT_OPACITY = 0.28;
+const AXIS_BASE_LENGTH = 1;
+const AXIS_SCREEN_PX = 28;
+
+const ROS_TO_THREE_QUAT = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(-Math.PI / 2, 0, 0),
+);
 
 const container = document.querySelector('[data-panel="4"] .world-viewer-host');
 const statusEl = document.getElementById('world-status');
@@ -72,6 +80,55 @@ function createTransparentMaterial(material) {
   return transparent;
 }
 
+function rosPoseToThree(pose) {
+  const position = new THREE.Vector3(
+    pose.position.x,
+    pose.position.z,
+    -pose.position.y,
+  );
+  const orientation = new THREE.Quaternion(
+    pose.orientation.x,
+    pose.orientation.y,
+    pose.orientation.z,
+    pose.orientation.w,
+  );
+  orientation.premultiply(ROS_TO_THREE_QUAT);
+  return { position, orientation };
+}
+
+function createRobotMarker() {
+  const root = new THREE.Group();
+  const axes = new THREE.Group();
+  const axisSpecs = [
+    { dir: new THREE.Vector3(1, 0, 0), color: 0xff3b30 },
+    { dir: new THREE.Vector3(0, 1, 0), color: 0x34c759 },
+    { dir: new THREE.Vector3(0, 0, 1), color: 0x007aff },
+  ];
+
+  for (const spec of axisSpecs) {
+    const arrow = new THREE.ArrowHelper(
+      spec.dir,
+      new THREE.Vector3(0, 0, 0),
+      AXIS_BASE_LENGTH,
+      spec.color,
+      AXIS_BASE_LENGTH * 0.18,
+      AXIS_BASE_LENGTH * 0.1,
+    );
+    for (const part of [arrow.line, arrow.cone]) {
+      part.renderOrder = 20;
+      part.material.transparent = false;
+      part.material.opacity = 1;
+      part.material.depthWrite = true;
+      part.material.depthTest = true;
+    }
+    axes.add(arrow);
+  }
+
+  root.add(axes);
+  root.visible = false;
+  return { root, axes };
+}
+
 class WorldViewer {
   constructor(host) {
     this.host = host;
@@ -114,6 +171,13 @@ class WorldViewer {
     this.modelRoot = new THREE.Group();
     this.scene.add(this.modelRoot);
 
+    const robotMarkerParts = createRobotMarker();
+    this.robotMarker = robotMarkerParts.root;
+    this.robotAxes = robotMarkerParts.axes;
+    this.scene.add(this.robotMarker);
+
+    this.poseTopic = null;
+    this.hasPose = false;
     this.meshes = [];
     this.transparentView = false;
     this._ndc = new THREE.Vector2();
@@ -135,7 +199,7 @@ class WorldViewer {
   prepareModelMaterials(root) {
     this.meshes = [];
     root.traverse((object) => {
-      if (!object.isMesh || !object.material) return;
+      if (!object.isMesh || !object.material || object.userData.skipTransparent) return;
 
       const normalMaterials = cloneMaterialList(object.material);
       const transparentMaterials = Array.isArray(normalMaterials)
@@ -169,6 +233,16 @@ class WorldViewer {
     }
 
     this.grid.visible = !enabled;
+    this.robotAxes.traverse((object) => {
+      const materials = object.material
+        ? (Array.isArray(object.material) ? object.material : [object.material])
+        : [];
+      for (const material of materials) {
+        material.transparent = false;
+        material.opacity = 1;
+        material.depthWrite = true;
+      }
+    });
     this.updateViewModeButton();
   }
 
@@ -221,6 +295,59 @@ class WorldViewer {
     this.controls.update();
   }
 
+  updateRobotAxesScreenScale() {
+    if (!this.robotMarker.visible) return;
+
+    const distance = this.camera.position.distanceTo(this.robotMarker.position);
+    if (distance <= 0) return;
+
+    const vFov = this.camera.fov * (Math.PI / 180);
+    const visibleHeight = 2 * Math.tan(vFov / 2) * distance;
+    const scale = (AXIS_SCREEN_PX / Math.max(1, this.host.clientHeight))
+      * visibleHeight
+      / AXIS_BASE_LENGTH;
+    this.robotAxes.scale.setScalar(scale);
+  }
+
+  updateRobotPose(message) {
+    const pose = message?.pose?.pose;
+    if (!pose?.position || !pose?.orientation) return;
+
+    const { position, orientation } = rosPoseToThree(pose);
+    this.robotMarker.position.copy(position);
+    this.robotMarker.quaternion.copy(orientation);
+    this.robotMarker.visible = true;
+    this.hasPose = true;
+    this.updateRobotAxesScreenScale();
+    this.updateLiveStatus(position);
+  }
+
+  updateLiveStatus(position) {
+    if (!this.hasPose) return;
+    setStatus(
+      `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)} · left rotate · right zoom · middle pan`,
+      'is-live',
+    );
+  }
+
+  startPose(ros) {
+    if (!ros || this.poseTopic) return;
+
+    this.poseTopic = new ROSLIB.Topic({
+      ros,
+      name: WORLD_POSE_TOPIC,
+      messageType: WORLD_POSE_TYPE,
+    });
+
+    this.poseTopic.subscribe((message) => {
+      this.updateRobotPose(message);
+    });
+
+    if (!this.hasPose) {
+      setStatus(`Subscribed · ${WORLD_POSE_TOPIC}`, null);
+    }
+  }
+
   async loadModel() {
     setStatus('Loading world model…');
     this.updateViewModeButton();
@@ -240,7 +367,11 @@ class WorldViewer {
       this.prepareModelMaterials(this.modelRoot);
       this.setTransparentView(false);
       this.fitCameraToModel(this.modelRoot);
-      setStatus('World model loaded · left rotate · right drag zoom · middle drag pan', 'is-live');
+      if (this.hasPose) {
+        this.updateLiveStatus(this.robotMarker.position);
+      } else {
+        setStatus('World model loaded · waiting for /world_pose', 'is-live');
+      }
       this.resize();
     } catch (error) {
       setStatus(error?.message || 'Failed to load world.glb', 'is-error');
@@ -257,6 +388,7 @@ class WorldViewer {
   }
 
   render() {
+    this.updateRobotAxesScreenScale();
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
@@ -271,6 +403,7 @@ class WorldViewer {
 
   destroy() {
     if (this.rafId) window.cancelAnimationFrame(this.rafId);
+    if (this.poseTopic) this.poseTopic.unsubscribe();
     this.renderer.domElement.removeEventListener('pointerdown', this.onOrbitPointerDown, true);
     this.resizeObserver.disconnect();
     this.controls.dispose();
@@ -283,6 +416,7 @@ if (container) {
   viewModeBtn?.addEventListener('click', () => {
     viewer.toggleViewMode();
   });
+  window.unitreeWorld = { start: (ros) => viewer.startPose(ros) };
 } else {
   setStatus('World viewer panel not ready', 'is-error');
 }
