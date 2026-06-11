@@ -34029,8 +34029,11 @@ void main() {
     updateViewModeButton() {
       if (viewModeBtn) {
         viewModeBtn.disabled = this.meshes.length === 0;
-        viewModeBtn.textContent = this.transparentView ? "Normal View" : "Transparent View";
-        viewModeBtn.classList.toggle("is-active", this.transparentView);
+        viewModeBtn.classList.toggle("is-transparent", this.transparentView);
+        viewModeBtn.setAttribute(
+          "aria-label",
+          this.transparentView ? "Normal view" : "Transparent view"
+        );
         viewModeBtn.setAttribute(
           "aria-pressed",
           this.transparentView ? "true" : "false"

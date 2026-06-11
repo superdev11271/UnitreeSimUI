@@ -582,43 +582,61 @@ button {
   height: 100%;
 }
 
-.world-view-actions {
+.world-view-toolbar {
   position: absolute;
-  top: 8px;
+  top: 50%;
   left: 8px;
   z-index: 5;
   display: flex;
+  flex-direction: column;
   gap: 6px;
+  transform: translateY(-50%);
 }
 
-.world-view-btn {
+.world-view-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
   height: 28px;
-  padding: 0 10px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: rgba(7, 11, 16, 0.42);
   color: rgba(238, 242, 247, 0.7);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.world-view-btn:hover:not(:disabled) {
+.world-view-icon-btn .world-view-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.world-view-icon-btn .world-view-icon-outline {
+  display: none;
+}
+
+.world-view-icon-btn.is-transparent .world-view-icon-solid {
+  display: none;
+}
+
+.world-view-icon-btn.is-transparent .world-view-icon-outline {
+  display: block;
+}
+
+.world-view-icon-btn:hover:not(:disabled) {
   background: rgba(7, 11, 16, 0.58);
   color: var(--text-primary);
   border-color: rgba(0, 229, 192, 0.35);
 }
 
-.world-view-btn.is-active {
+.world-view-icon-btn.is-transparent {
   background: rgba(0, 229, 192, 0.1);
   color: var(--accent);
   border-color: rgba(0, 229, 192, 0.45);
 }
 
-.world-view-btn:disabled {
+.world-view-icon-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

@@ -130,12 +130,47 @@
               <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
               <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
             </button>
-            <div class="world-view-actions">
-              <button class="world-view-btn" id="world-view-mode-btn" type="button" disabled>
-                Transparent View
+            <div class="world-view-toolbar" aria-label="World viewer controls">
+              <button
+                class="world-view-icon-btn"
+                id="world-view-mode-btn"
+                type="button"
+                disabled
+                aria-label="Transparent view"
+                aria-pressed="false"
+              >
+                <svg class="world-view-icon world-view-icon-solid" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M8 2.25 13.25 5.5v5L8 13.75 2.75 10.5v-5z"
+                  />
+                </svg>
+                <svg class="world-view-icon world-view-icon-outline" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linejoin="round"
+                    d="M8 2.25 13.25 5.5v5L8 13.75 2.75 10.5v-5L8 2.25z"
+                  />
+                </svg>
               </button>
-              <button class="world-view-btn" id="world-focus-robot-btn" type="button">
-                Focus Robot
+              <button
+                class="world-view-icon-btn"
+                id="world-focus-robot-btn"
+                type="button"
+                aria-label="Focus robot"
+              >
+                <svg class="world-view-icon" viewBox="0 0 16 16" aria-hidden="true">
+                  <circle cx="8" cy="8" r="2.25" fill="none" stroke="currentColor" stroke-width="1.2" />
+                  <path
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linecap="round"
+                    d="M8 2.25v2.25M8 11.5v2.25M2.25 8h2.25M11.5 8h2.25"
+                  />
+                </svg>
               </button>
             </div>
             <div id="world-viewer" class="world-viewer-host" aria-label="World model preview"></div>
