@@ -14330,6 +14330,99 @@
       return new _ConeGeometry(data.radius, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
     }
   };
+  var _v0 = /* @__PURE__ */ new Vector3();
+  var _v1$1 = /* @__PURE__ */ new Vector3();
+  var _normal = /* @__PURE__ */ new Vector3();
+  var _triangle = /* @__PURE__ */ new Triangle();
+  var EdgesGeometry = class extends BufferGeometry {
+    /**
+     * Constructs a new edges geometry.
+     *
+     * @param {?BufferGeometry} [geometry=null] - The geometry.
+     * @param {number} [thresholdAngle=1] - An edge is only rendered if the angle (in degrees)
+     * between the face normals of the adjoining faces exceeds this value.
+     */
+    constructor(geometry = null, thresholdAngle = 1) {
+      super();
+      this.type = "EdgesGeometry";
+      this.parameters = {
+        geometry,
+        thresholdAngle
+      };
+      if (geometry !== null) {
+        const precisionPoints = 4;
+        const precision = Math.pow(10, precisionPoints);
+        const thresholdDot = Math.cos(DEG2RAD * thresholdAngle);
+        const indexAttr = geometry.getIndex();
+        const positionAttr = geometry.getAttribute("position");
+        const indexCount = indexAttr ? indexAttr.count : positionAttr.count;
+        const indexArr = [0, 0, 0];
+        const vertKeys = ["a", "b", "c"];
+        const hashes = new Array(3);
+        const edgeData = {};
+        const vertices = [];
+        for (let i = 0; i < indexCount; i += 3) {
+          if (indexAttr) {
+            indexArr[0] = indexAttr.getX(i);
+            indexArr[1] = indexAttr.getX(i + 1);
+            indexArr[2] = indexAttr.getX(i + 2);
+          } else {
+            indexArr[0] = i;
+            indexArr[1] = i + 1;
+            indexArr[2] = i + 2;
+          }
+          const { a, b, c } = _triangle;
+          a.fromBufferAttribute(positionAttr, indexArr[0]);
+          b.fromBufferAttribute(positionAttr, indexArr[1]);
+          c.fromBufferAttribute(positionAttr, indexArr[2]);
+          _triangle.getNormal(_normal);
+          hashes[0] = `${Math.round(a.x * precision)},${Math.round(a.y * precision)},${Math.round(a.z * precision)}`;
+          hashes[1] = `${Math.round(b.x * precision)},${Math.round(b.y * precision)},${Math.round(b.z * precision)}`;
+          hashes[2] = `${Math.round(c.x * precision)},${Math.round(c.y * precision)},${Math.round(c.z * precision)}`;
+          if (hashes[0] === hashes[1] || hashes[1] === hashes[2] || hashes[2] === hashes[0]) {
+            continue;
+          }
+          for (let j = 0; j < 3; j++) {
+            const jNext = (j + 1) % 3;
+            const vecHash0 = hashes[j];
+            const vecHash1 = hashes[jNext];
+            const v0 = _triangle[vertKeys[j]];
+            const v1 = _triangle[vertKeys[jNext]];
+            const hash = `${vecHash0}_${vecHash1}`;
+            const reverseHash = `${vecHash1}_${vecHash0}`;
+            if (reverseHash in edgeData && edgeData[reverseHash]) {
+              if (_normal.dot(edgeData[reverseHash].normal) <= thresholdDot) {
+                vertices.push(v0.x, v0.y, v0.z);
+                vertices.push(v1.x, v1.y, v1.z);
+              }
+              edgeData[reverseHash] = null;
+            } else if (!(hash in edgeData)) {
+              edgeData[hash] = {
+                index0: indexArr[j],
+                index1: indexArr[jNext],
+                normal: _normal.clone()
+              };
+            }
+          }
+        }
+        for (const key in edgeData) {
+          if (edgeData[key]) {
+            const { index0, index1 } = edgeData[key];
+            _v0.fromBufferAttribute(positionAttr, index0);
+            _v1$1.fromBufferAttribute(positionAttr, index1);
+            vertices.push(_v0.x, _v0.y, _v0.z);
+            vertices.push(_v1$1.x, _v1$1.y, _v1$1.z);
+          }
+        }
+        this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+  };
   var PlaneGeometry = class _PlaneGeometry extends BufferGeometry {
     /**
      * Constructs a new plane geometry.
@@ -22824,12 +22917,12 @@
     }
     return "vec3 " + functionName + "( vec3 color ) { return " + toneMappingName + "ToneMapping( color ); }";
   }
-  var _v0 = /* @__PURE__ */ new Vector3();
+  var _v02 = /* @__PURE__ */ new Vector3();
   function getLuminanceFunction() {
-    ColorManagement.getLuminanceCoefficients(_v0);
-    const r = _v0.x.toFixed(4);
-    const g = _v0.y.toFixed(4);
-    const b = _v0.z.toFixed(4);
+    ColorManagement.getLuminanceCoefficients(_v02);
+    const r = _v02.x.toFixed(4);
+    const g = _v02.y.toFixed(4);
+    const b = _v02.z.toFixed(4);
     return [
       "float luminance( const in vec3 rgb ) {",
       `	const vec3 weights = vec3( ${r}, ${g}, ${b} );`,
@@ -33833,9 +33926,14 @@ void main() {
   var WORLD_POSE_TOPIC = "/world_pose";
   var WORLD_POSE_TYPE = "nav_msgs/msg/Odometry";
   var LOAD_TIMEOUT_MS = 15e3;
-  var TRANSPARENT_OPACITY = 0.28;
+  var TRANSPARENT_OPACITY = 0.22;
+  var EDGE_THRESHOLD_DEG = 24;
+  var EDGE_COLOR = 11064520;
+  var EDGE_OPACITY = 0.92;
+  var EDGE_RENDER_ORDER = 50;
   var AXIS_BASE_LENGTH = 1;
   var AXIS_SCREEN_PX = 28;
+  var AXIS_RENDER_ORDER = 9999;
   var ROS_TO_THREE_QUAT = new Quaternion().setFromEuler(
     new Euler(-Math.PI / 2, 0, 0)
   );
@@ -33888,13 +33986,43 @@ void main() {
     }
     return material.clone();
   }
+  function getMaterialColor(material) {
+    if (material.color?.isColor) {
+      return material.color;
+    }
+    return new Color(9147816);
+  }
   function createTransparentMaterial(material) {
-    const transparent = material.clone();
-    transparent.transparent = true;
-    transparent.opacity = TRANSPARENT_OPACITY;
-    transparent.depthWrite = false;
-    transparent.side = DoubleSide;
+    const transparent = new MeshBasicMaterial({
+      color: getMaterialColor(material).clone(),
+      transparent: true,
+      opacity: TRANSPARENT_OPACITY,
+      depthWrite: false,
+      side: DoubleSide,
+      toneMapped: false
+    });
+    if (material.map) {
+      transparent.map = material.map;
+      transparent.map.colorSpace = material.map.colorSpace ?? SRGBColorSpace;
+    }
     return transparent;
+  }
+  function createMeshEdgeLines(mesh) {
+    const edges = new EdgesGeometry(mesh.geometry, EDGE_THRESHOLD_DEG);
+    const lines = new LineSegments(
+      edges,
+      new LineBasicMaterial({
+        color: EDGE_COLOR,
+        transparent: true,
+        opacity: EDGE_OPACITY,
+        depthWrite: false,
+        toneMapped: false
+      })
+    );
+    lines.renderOrder = EDGE_RENDER_ORDER;
+    lines.visible = false;
+    mesh.add(lines);
+    return lines;
   }
   function rosPoseToThree(pose) {
     const position = new Vector3(
@@ -33934,21 +34062,22 @@ void main() {
     root.visible = false;
     return { root, axes };
   }
-  function configureRobotAxesMaterials(axes, overlay) {
+  function configureRobotAxesMaterials(axes) {
+    axes.renderOrder = AXIS_RENDER_ORDER;
     axes.traverse((object) => {
       if (!object.material) return;
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       for (const material of materials) {
         material.transparent = false;
         material.opacity = 1;
-        material.depthWrite = !overlay;
-        material.depthTest = !overlay;
+        material.depthWrite = true;
+        material.depthTest = true;
         material.fog = false;
         if ("toneMapped" in material) {
           material.toneMapped = false;
         }
       }
-      object.renderOrder = overlay ? 1e3 : 20;
+      object.renderOrder = AXIS_RENDER_ORDER;
     });
   }
   var WorldViewer = class {
@@ -33997,7 +34126,7 @@ void main() {
       const robotMarkerParts = createRobotMarker();
       this.robotMarker = robotMarkerParts.root;
       this.robotAxes = robotMarkerParts.axes;
-      configureRobotAxesMaterials(this.robotAxes, false);
+      configureRobotAxesMaterials(this.robotAxes);
       this.scene.add(this.robotMarker);
       this.poseTopic = null;
       this.hasPose = false;
@@ -34029,8 +34158,18 @@ void main() {
         const transparentMaterials = Array.isArray(normalMaterials) ? normalMaterials.map(createTransparentMaterial) : createTransparentMaterial(normalMaterials);
         object.userData.normalMaterials = normalMaterials;
         object.userData.transparentMaterials = transparentMaterials;
+        if (!object.userData.edgeLines) {
+          object.userData.edgeLines = createMeshEdgeLines(object);
+        }
         this.meshes.push(object);
       });
+    }
+    setEdgeLinesVisible(visible) {
+      for (const mesh of this.meshes) {
+        if (mesh.userData.edgeLines) {
+          mesh.userData.edgeLines.visible = visible;
+        }
+      }
     }
     updateViewModeButton() {
       if (viewModeBtn) {
@@ -34095,7 +34234,6 @@ void main() {
       this.controls.target.copy(robotPosition);
       this.camera.position.copy(robotPosition).add(offset);
       this.orbitAroundRobot = true;
-      configureRobotAxesMaterials(this.robotAxes, this.transparentView);
       this.controls.update();
     }
     setTransparentView(enabled) {
@@ -34104,7 +34242,7 @@ void main() {
         mesh.material = enabled ? mesh.userData.transparentMaterials : mesh.userData.normalMaterials;
       }
       this.grid.visible = !enabled;
-      configureRobotAxesMaterials(this.robotAxes, enabled);
+      this.setEdgeLinesVisible(enabled);
       this.updateViewModeButton();
     }
     toggleViewMode() {
@@ -34229,10 +34367,27 @@ void main() {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(width, height, false);
     }
+    renderTransparentWithAxesOverlay() {
+      this.renderer.render(this.scene, this.camera);
+      const previousAutoClear = this.renderer.autoClear;
+      const previousBackground = this.scene.background;
+      this.scene.background = null;
+      this.modelRoot.visible = false;
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(this.scene, this.camera);
+      this.modelRoot.visible = true;
+      this.scene.background = previousBackground;
+      this.renderer.autoClear = previousAutoClear;
+    }
     render() {
       this.applyFollowMode();
       this.updateRobotAxesScreenScale();
       this.controls.update();
+      if (this.transparentView && this.robotMarker.visible) {
+        this.renderTransparentWithAxesOverlay();
+        return;
+      }
       this.renderer.render(this.scene, this.camera);
     }
     startLoop() {

@@ -6,9 +6,14 @@ const WORLD_MODEL_FALLBACK_URL = '../assets/world.glb';
 const WORLD_POSE_TOPIC = '/world_pose';
 const WORLD_POSE_TYPE = 'nav_msgs/msg/Odometry';
 const LOAD_TIMEOUT_MS = 15000;
-const TRANSPARENT_OPACITY = 0.28;
+const TRANSPARENT_OPACITY = 0.22;
+const EDGE_THRESHOLD_DEG = 24;
+const EDGE_COLOR = 0xa8d4c8;
+const EDGE_OPACITY = 0.92;
+const EDGE_RENDER_ORDER = 50;
 const AXIS_BASE_LENGTH = 1;
 const AXIS_SCREEN_PX = 28;
+const AXIS_RENDER_ORDER = 9999;
 
 const ROS_TO_THREE_QUAT = new THREE.Quaternion().setFromEuler(
   new THREE.Euler(-Math.PI / 2, 0, 0),
@@ -73,13 +78,47 @@ function cloneMaterialList(material) {
   return material.clone();
 }
 
+function getMaterialColor(material) {
+  if (material.color?.isColor) {
+    return material.color;
+  }
+  return new THREE.Color(0x8b95a8);
+}
+
 function createTransparentMaterial(material) {
-  const transparent = material.clone();
-  transparent.transparent = true;
-  transparent.opacity = TRANSPARENT_OPACITY;
-  transparent.depthWrite = false;
-  transparent.side = THREE.DoubleSide;
+  const transparent = new THREE.MeshBasicMaterial({
+    color: getMaterialColor(material).clone(),
+    transparent: true,
+    opacity: TRANSPARENT_OPACITY,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+
+  if (material.map) {
+    transparent.map = material.map;
+    transparent.map.colorSpace = material.map.colorSpace ?? THREE.SRGBColorSpace;
+  }
+
   return transparent;
+}
+
+function createMeshEdgeLines(mesh) {
+  const edges = new THREE.EdgesGeometry(mesh.geometry, EDGE_THRESHOLD_DEG);
+  const lines = new THREE.LineSegments(
+    edges,
+    new THREE.LineBasicMaterial({
+      color: EDGE_COLOR,
+      transparent: true,
+      opacity: EDGE_OPACITY,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
+  lines.renderOrder = EDGE_RENDER_ORDER;
+  lines.visible = false;
+  mesh.add(lines);
+  return lines;
 }
 
 function rosPoseToThree(pose) {
@@ -124,7 +163,8 @@ function createRobotMarker() {
   return { root, axes };
 }
 
-function configureRobotAxesMaterials(axes, overlay) {
+function configureRobotAxesMaterials(axes) {
+  axes.renderOrder = AXIS_RENDER_ORDER;
   axes.traverse((object) => {
     if (!object.material) return;
 
@@ -132,15 +172,15 @@ function configureRobotAxesMaterials(axes, overlay) {
     for (const material of materials) {
       material.transparent = false;
       material.opacity = 1;
-      material.depthWrite = !overlay;
-      material.depthTest = !overlay;
+      material.depthWrite = true;
+      material.depthTest = true;
       material.fog = false;
       if ('toneMapped' in material) {
         material.toneMapped = false;
       }
     }
 
-    object.renderOrder = overlay ? 1000 : 20;
+    object.renderOrder = AXIS_RENDER_ORDER;
   });
 }
 
@@ -197,7 +237,7 @@ class WorldViewer {
     const robotMarkerParts = createRobotMarker();
     this.robotMarker = robotMarkerParts.root;
     this.robotAxes = robotMarkerParts.axes;
-    configureRobotAxesMaterials(this.robotAxes, false);
+    configureRobotAxesMaterials(this.robotAxes);
     this.scene.add(this.robotMarker);
 
     this.poseTopic = null;
@@ -236,8 +276,19 @@ class WorldViewer {
 
       object.userData.normalMaterials = normalMaterials;
       object.userData.transparentMaterials = transparentMaterials;
+      if (!object.userData.edgeLines) {
+        object.userData.edgeLines = createMeshEdgeLines(object);
+      }
       this.meshes.push(object);
     });
+  }
+
+  setEdgeLinesVisible(visible) {
+    for (const mesh of this.meshes) {
+      if (mesh.userData.edgeLines) {
+        mesh.userData.edgeLines.visible = visible;
+      }
+    }
   }
 
   updateViewModeButton() {
@@ -317,7 +368,6 @@ class WorldViewer {
     this.controls.target.copy(robotPosition);
     this.camera.position.copy(robotPosition).add(offset);
     this.orbitAroundRobot = true;
-    configureRobotAxesMaterials(this.robotAxes, this.transparentView);
     this.controls.update();
   }
 
@@ -331,7 +381,7 @@ class WorldViewer {
     }
 
     this.grid.visible = !enabled;
-    configureRobotAxesMaterials(this.robotAxes, enabled);
+    this.setEdgeLinesVisible(enabled);
     this.updateViewModeButton();
   }
 
@@ -485,10 +535,31 @@ class WorldViewer {
     this.renderer.setSize(width, height, false);
   }
 
+  renderTransparentWithAxesOverlay() {
+    this.renderer.render(this.scene, this.camera);
+
+    const previousAutoClear = this.renderer.autoClear;
+    const previousBackground = this.scene.background;
+    this.scene.background = null;
+    this.modelRoot.visible = false;
+    this.renderer.autoClear = false;
+    this.renderer.clearDepth();
+    this.renderer.render(this.scene, this.camera);
+    this.modelRoot.visible = true;
+    this.scene.background = previousBackground;
+    this.renderer.autoClear = previousAutoClear;
+  }
+
   render() {
     this.applyFollowMode();
     this.updateRobotAxesScreenScale();
     this.controls.update();
+
+    if (this.transparentView && this.robotMarker.visible) {
+      this.renderTransparentWithAxesOverlay();
+      return;
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 
