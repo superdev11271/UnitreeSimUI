@@ -109,12 +109,12 @@ ipcMain.handle('window:maximize', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return false;
 
-  if (win.isMaximized()) {
-    win.unmaximize();
+  if (win.isFullScreen()) {
+    win.setFullScreen(false);
     return false;
   }
 
-  win.maximize();
+  win.setFullScreen(true);
   return true;
 });
 
