@@ -18,6 +18,54 @@ const AXIS_BASE_LENGTH = 1;
 const AXIS_SCREEN_PX = 28;
 const AXIS_RENDER_ORDER = 9999;
 const ROBOT_RENDER_ORDER = 9998;
+const RATE_INTERVAL_MS = 1000;
+
+function createRateTracker(onTick) {
+  let count = 0;
+  let rate = 0;
+  let windowStart = 0;
+  let timerId = null;
+
+  function flushWindow(now = performance.now()) {
+    if (!windowStart) {
+      windowStart = now;
+      return;
+    }
+
+    const elapsedSec = (now - windowStart) / 1000;
+    rate = elapsedSec > 0 ? count / elapsedSec : 0;
+    count = 0;
+    windowStart = now;
+    onTick(rate);
+  }
+
+  return {
+    record() {
+      count += 1;
+    },
+    start() {
+      this.stop();
+      windowStart = performance.now();
+      count = 0;
+      rate = 0;
+      timerId = window.setInterval(() => {
+        flushWindow();
+      }, RATE_INTERVAL_MS);
+    },
+    stop() {
+      if (timerId) {
+        window.clearInterval(timerId);
+        timerId = null;
+      }
+      count = 0;
+      rate = 0;
+      windowStart = 0;
+    },
+    getRate() {
+      return rate;
+    },
+  };
+}
 
 const LEG_PREFIXES = ['FL', 'FR', 'RL', 'RR'];
 
@@ -50,8 +98,12 @@ const focusRobotBtn = document.getElementById('world-focus-robot-btn');
 const followBtn = document.getElementById('world-follow-btn');
 const robotViewBtn = document.getElementById('world-robot-view-btn');
 
-function setStatus(text, state) {
+function setStatus(text, state, rate = null) {
   if (!statusEl) return;
+  if (window.unitreeSensorStatus?.setPanelStatus) {
+    window.unitreeSensorStatus.setPanelStatus(statusEl, text, { state, rate });
+    return;
+  }
   statusEl.textContent = text;
   statusEl.classList.remove('is-live', 'is-error');
   if (state) statusEl.classList.add(state);
@@ -393,6 +445,11 @@ class WorldViewer {
     this.robotViewMode = 'axis';
     this.jointMap = new Map();
     this.lastJointStatesMessage = null;
+    this.lastStatusPosition = null;
+    this.poseRateTracker = createRateTracker((hz) => {
+      if (!this.isSubscribed) return;
+      this.updateLiveStatus(hz);
+    });
     this.orbitAroundRobot = false;
     this.followMode = false;
     this.meshes = [];
@@ -647,20 +704,31 @@ class WorldViewer {
     this.robotMarker.quaternion.copy(orientation);
     this.robotMarker.visible = true;
     this.hasPose = true;
+    this.lastStatusPosition = position;
+    this.poseRateTracker.record();
     this.updateRobotDisplay();
     this.updateRobotAxesScreenScale();
     if (this.followMode) {
       this.applyFollowMode();
     }
-    this.updateLiveStatus(position);
+    this.updateLiveStatus();
   }
 
-  updateLiveStatus(position) {
-    if (!this.hasPose || !this.isSubscribed) return;
-    setStatus(
-      `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
-      'is-live',
-    );
+  updateLiveStatus(rateOverride = null) {
+    if (!this.isSubscribed) return;
+
+    const rate = rateOverride ?? this.poseRateTracker.getRate();
+    if (this.hasPose && this.lastStatusPosition) {
+      const position = this.lastStatusPosition;
+      setStatus(
+        `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
+        'is-live',
+        rate,
+      );
+      return;
+    }
+
+    setStatus('Waiting for robot pose…', null, rate);
   }
 
   updateJointStates(message) {
@@ -740,7 +808,9 @@ class WorldViewer {
 
     if (active && !this.isSubscribed) {
       this.subscribePoseTopics();
+      this.poseRateTracker.start();
       this.isSubscribed = true;
+      this.updateLiveStatus(0);
       return;
     }
 
@@ -748,9 +818,11 @@ class WorldViewer {
       if (this.isSubscribed) {
         this.unsubscribePoseTopics();
       }
+      this.poseRateTracker.stop();
       this.clearPanelData();
+      this.lastStatusPosition = null;
       this.isSubscribed = false;
-      setStatus('Disabled', null);
+      setStatus('Disabled', null, null);
     }
   }
 
@@ -816,9 +888,9 @@ class WorldViewer {
       this.setTransparentView(false);
       this.fitCameraToModel(this.modelRoot);
       if (this.hasPose) {
-        this.updateLiveStatus(this.robotMarker.position);
+        this.updateLiveStatus();
       } else if (this.isSubscribed) {
-        setStatus('Waiting for robot pose…', null);
+        setStatus('Waiting for robot pose…', null, this.poseRateTracker.getRate());
       }
       this.resize();
     } catch (error) {

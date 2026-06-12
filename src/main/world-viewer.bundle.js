@@ -33938,6 +33938,50 @@ void main() {
   var AXIS_SCREEN_PX = 28;
   var AXIS_RENDER_ORDER = 9999;
   var ROBOT_RENDER_ORDER = 9998;
+  var RATE_INTERVAL_MS = 1e3;
+  function createRateTracker(onTick) {
+    let count = 0;
+    let rate = 0;
+    let windowStart = 0;
+    let timerId = null;
+    function flushWindow(now = performance.now()) {
+      if (!windowStart) {
+        windowStart = now;
+        return;
+      }
+      const elapsedSec = (now - windowStart) / 1e3;
+      rate = elapsedSec > 0 ? count / elapsedSec : 0;
+      count = 0;
+      windowStart = now;
+      onTick(rate);
+    }
+    return {
+      record() {
+        count += 1;
+      },
+      start() {
+        this.stop();
+        windowStart = performance.now();
+        count = 0;
+        rate = 0;
+        timerId = window.setInterval(() => {
+          flushWindow();
+        }, RATE_INTERVAL_MS);
+      },
+      stop() {
+        if (timerId) {
+          window.clearInterval(timerId);
+          timerId = null;
+        }
+        count = 0;
+        rate = 0;
+        windowStart = 0;
+      },
+      getRate() {
+        return rate;
+      }
+    };
+  }
   var LEG_PREFIXES = ["FL", "FR", "RL", "RR"];
   var AXIS_X = new Vector3(1, 0, 0);
   var AXIS_Z = new Vector3(0, 0, 1);
@@ -33964,8 +34008,12 @@ void main() {
   var focusRobotBtn = document.getElementById("world-focus-robot-btn");
   var followBtn = document.getElementById("world-follow-btn");
   var robotViewBtn = document.getElementById("world-robot-view-btn");
-  function setStatus(text, state) {
+  function setStatus(text, state, rate = null) {
     if (!statusEl) return;
+    if (window.unitreeSensorStatus?.setPanelStatus) {
+      window.unitreeSensorStatus.setPanelStatus(statusEl, text, { state, rate });
+      return;
+    }
     statusEl.textContent = text;
     statusEl.classList.remove("is-live", "is-error");
     if (state) statusEl.classList.add(state);
@@ -34259,6 +34307,11 @@ void main() {
       this.robotViewMode = "axis";
       this.jointMap = /* @__PURE__ */ new Map();
       this.lastJointStatesMessage = null;
+      this.lastStatusPosition = null;
+      this.poseRateTracker = createRateTracker((hz) => {
+        if (!this.isSubscribed) return;
+        this.updateLiveStatus(hz);
+      });
       this.orbitAroundRobot = false;
       this.followMode = false;
       this.meshes = [];
@@ -34463,19 +34516,28 @@ void main() {
       this.robotMarker.quaternion.copy(orientation);
       this.robotMarker.visible = true;
       this.hasPose = true;
+      this.lastStatusPosition = position;
+      this.poseRateTracker.record();
       this.updateRobotDisplay();
       this.updateRobotAxesScreenScale();
       if (this.followMode) {
         this.applyFollowMode();
       }
-      this.updateLiveStatus(position);
+      this.updateLiveStatus();
     }
-    updateLiveStatus(position) {
-      if (!this.hasPose || !this.isSubscribed) return;
-      setStatus(
-        `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
-        "is-live"
-      );
+    updateLiveStatus(rateOverride = null) {
+      if (!this.isSubscribed) return;
+      const rate = rateOverride ?? this.poseRateTracker.getRate();
+      if (this.hasPose && this.lastStatusPosition) {
+        const position = this.lastStatusPosition;
+        setStatus(
+          `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
+          "is-live",
+          rate
+        );
+        return;
+      }
+      setStatus("Waiting for robot pose\u2026", null, rate);
     }
     updateJointStates(message) {
       if (!message) return;
@@ -34538,16 +34600,20 @@ void main() {
       if (!this.ros) return;
       if (active && !this.isSubscribed) {
         this.subscribePoseTopics();
+        this.poseRateTracker.start();
         this.isSubscribed = true;
+        this.updateLiveStatus(0);
         return;
       }
       if (!active) {
         if (this.isSubscribed) {
           this.unsubscribePoseTopics();
         }
+        this.poseRateTracker.stop();
         this.clearPanelData();
+        this.lastStatusPosition = null;
         this.isSubscribed = false;
-        setStatus("Disabled", null);
+        setStatus("Disabled", null, null);
       }
     }
     startJointStates(ros) {
@@ -34602,9 +34668,9 @@ void main() {
         this.setTransparentView(false);
         this.fitCameraToModel(this.modelRoot);
         if (this.hasPose) {
-          this.updateLiveStatus(this.robotMarker.position);
+          this.updateLiveStatus();
         } else if (this.isSubscribed) {
-          setStatus("Waiting for robot pose\u2026", null);
+          setStatus("Waiting for robot pose\u2026", null, this.poseRateTracker.getRate());
         }
         this.resize();
       } catch (error2) {

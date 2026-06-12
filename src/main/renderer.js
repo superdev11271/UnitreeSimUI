@@ -23,7 +23,18 @@ startTitlebarClock();
 
 window.addEventListener('unhandledrejection', (event) => {
   const status = document.getElementById('world-status');
-  if (!status || !status.textContent.startsWith('Loading world model')) return;
+  if (!status) return;
+  const textEl = status.querySelector('.sensor-status-text');
+  const currentText = textEl?.textContent ?? status.textContent;
+  if (!currentText.startsWith('Loading world model')) return;
+  if (window.unitreeSensorStatus?.setPanelStatus) {
+    window.unitreeSensorStatus.setPanelStatus(
+      status,
+      event.reason?.message || 'World viewer failed to start',
+      { state: 'is-error', mode: 'error' },
+    );
+    return;
+  }
   status.textContent = event.reason?.message || 'World viewer failed to start';
   status.classList.add('is-error');
 });

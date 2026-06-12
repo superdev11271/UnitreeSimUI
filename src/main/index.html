@@ -75,7 +75,7 @@
               </button>
               <canvas id="pip-camera-canvas" aria-label="Picture-in-picture camera feed"></canvas>
             </div>
-            <p class="camera-status" id="front-camera-status">Waiting for camera…</p>
+            <p class="camera-status" id="front-camera-status"><span class="sensor-status-dot is-waiting" aria-hidden="true"></span><span class="sensor-status-text">Waiting for camera…</span></p>
             <div class="robot-controls" aria-label="Robot controls">
               <div class="robot-cmd-group">
                 <button class="robot-cmd-btn" type="button" data-cmd="select">Select</button>
@@ -125,7 +125,7 @@
               </button>
             </div>
             <canvas id="lidar-canvas" aria-label="Lidar point cloud"></canvas>
-            <p class="lidar-status" id="lidar-status">Waiting for lidar…</p>
+            <p class="lidar-status" id="lidar-status"><span class="sensor-status-dot is-waiting" aria-hidden="true"></span><span class="sensor-status-text">Waiting for lidar…</span></p>
           </div>
         </section>
 
@@ -156,7 +156,7 @@
               </button>
               <canvas id="third-pip-camera-canvas" aria-label="Third picture-in-picture camera feed"></canvas>
             </div>
-            <p class="camera-status" id="third-camera-status">Waiting for camera…</p>
+            <p class="camera-status" id="third-camera-status"><span class="sensor-status-dot is-waiting" aria-hidden="true"></span><span class="sensor-status-text">Waiting for camera…</span></p>
           </div>
         </section>
 
@@ -280,13 +280,14 @@
               </button>
             </div>
             <div id="world-viewer" class="world-viewer-host" aria-label="World model preview"></div>
-            <p class="world-status" id="world-status">Loading world model…</p>
+            <p class="world-status" id="world-status"><span class="sensor-status-dot is-waiting" aria-hidden="true"></span><span class="sensor-status-text">Loading world model…</span></p>
           </div>
         </section>
       </div>
     </div>
 
     <script src="../../node_modules/roslib/build/roslib.min.js"></script>
+    <script src="sensor-status.js"></script>
     <script src="camera.js"></script>
     <script src="lidar.js"></script>
     <script src="robot-control.js"></script>

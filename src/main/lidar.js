@@ -67,16 +67,18 @@ let isSubscribed = false;
 
 const rateTracker = createRateTracker((hz) => {
   if (!isSubscribed) return;
-  setStatus(formatLidarStatus(lastPointCount, hz), 'is-live');
+  setStatus(formatLidarStatus(lastPointCount, hz), 'is-live', hz);
 });
 
-function setStatus(text, state) {
+function setStatus(text, state, rate = null) {
   if (!statusEl) return;
+  if (window.unitreeSensorStatus?.setPanelStatus) {
+    window.unitreeSensorStatus.setPanelStatus(statusEl, text, { state, rate });
+    return;
+  }
   statusEl.textContent = text;
   statusEl.classList.remove('is-live', 'is-error');
-  if (state) {
-    statusEl.classList.add(state);
-  }
+  if (state) statusEl.classList.add(state);
 }
 
 function toUint8Array(data) {

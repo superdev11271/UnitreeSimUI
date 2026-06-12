@@ -113,6 +113,8 @@ function createCameraStream({
   let lastObjectUrl = null;
   let hasFrame = false;
   let lastLabel = '';
+  let loadGeneration = 0;
+  let decodeRequestId = 0;
 
   function formatStatusLabel(fps = rateTracker.getRate()) {
     const fpsText = fps > 0 ? `${fps.toFixed(1)} fps` : '— fps';
@@ -158,6 +160,8 @@ function createCameraStream({
   }
 
   function drawCompressedImage(message) {
+    if (!isSubscribed) return;
+
     const { data } = message;
     const bytes = toUint8Array(data);
     if (!bytes.length) return;
@@ -171,13 +175,23 @@ function createCameraStream({
       mime = 'image/jpeg';
     }
 
-    if (lastObjectUrl) {
-      URL.revokeObjectURL(lastObjectUrl);
-    }
-
-    lastObjectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    const generation = loadGeneration;
+    decodeRequestId += 1;
+    const requestId = decodeRequestId;
+    const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
     const img = new Image();
+
     img.onload = () => {
+      if (!isSubscribed || generation !== loadGeneration || requestId !== decodeRequestId) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      if (lastObjectUrl && lastObjectUrl !== objectUrl) {
+        URL.revokeObjectURL(lastObjectUrl);
+      }
+      lastObjectUrl = objectUrl;
+
       sourceCanvas.width = img.width;
       sourceCanvas.height = img.height;
       sourceCtx.drawImage(img, 0, 0);
@@ -186,10 +200,16 @@ function createCameraStream({
       lastLabel = formatStatusLabel();
       renderFrame();
     };
+
     img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      if (!isSubscribed || generation !== loadGeneration || requestId !== decodeRequestId) {
+        return;
+      }
       if (onError) onError('Failed to decode compressed image', 'is-error');
     };
-    img.src = lastObjectUrl;
+
+    img.src = objectUrl;
   }
 
   let imageTopicObj = null;
@@ -219,6 +239,9 @@ function createCameraStream({
   }
 
   function clearData() {
+    loadGeneration += 1;
+    decodeRequestId += 1;
+
     if (lastObjectUrl) {
       URL.revokeObjectURL(lastObjectUrl);
       lastObjectUrl = null;
@@ -270,6 +293,9 @@ function createCameraStream({
     clearData,
     setRenderTarget,
     renderFrame,
+    getRate() {
+      return rateTracker.getRate();
+    },
     getStatusLabel() {
       return hasFrame ? lastLabel : null;
     },
@@ -291,25 +317,30 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
   let backStream = null;
   let isSubscribed = false;
 
-  function setStatus(text, state) {
+  function setStatus(text, state, rate = null) {
     if (!statusEl) return;
+    if (window.unitreeSensorStatus?.setPanelStatus) {
+      window.unitreeSensorStatus.setPanelStatus(statusEl, text, { state, rate });
+      return;
+    }
     statusEl.textContent = text;
     statusEl.classList.remove('is-live', 'is-error');
     if (state) statusEl.classList.add(state);
   }
 
-  function updateMainStatus() {
+  function updateMainStatus(rate = null) {
     if (!isSubscribed) {
-      setStatus('Disabled', null);
+      setStatus('Disabled', null, null);
       return;
     }
 
     const mainStream = mainCameraKey === 'front' ? frontStream : backStream;
     const label = mainStream?.getStatusLabel?.();
+    const streamRate = rate ?? mainStream?.getRate?.() ?? null;
     if (label) {
-      setStatus(label, 'is-live');
+      setStatus(label, 'is-live', streamRate);
     } else {
-      setStatus('Waiting for camera…', null);
+      setStatus('Waiting for camera…', null, streamRate);
     }
   }
 
@@ -353,14 +384,19 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
       pipCanvas,
       mainContainer: panelContainer,
       pipContainer,
-      onError: setStatus,
     };
 
     frontStream = createCameraStream({
       ...topics.front,
       ...streamElements,
       onLive: (label) => {
-        if (mainCameraKey === 'front') setStatus(label, 'is-live');
+        if (mainCameraKey === 'front') {
+          setStatus(label, 'is-live', frontStream.getRate());
+        }
+      },
+      onError: (text, state) => {
+        if (!isSubscribed || mainCameraKey !== 'front') return;
+        setStatus(text, state, 0);
       },
     });
 
@@ -368,7 +404,13 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
       ...topics.back,
       ...streamElements,
       onLive: (label) => {
-        if (mainCameraKey === 'back') setStatus(label, 'is-live');
+        if (mainCameraKey === 'back') {
+          setStatus(label, 'is-live', backStream.getRate());
+        }
+      },
+      onError: (text, state) => {
+        if (!isSubscribed || mainCameraKey !== 'back') return;
+        setStatus(text, state, 0);
       },
     });
 
