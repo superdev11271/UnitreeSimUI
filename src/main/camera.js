@@ -1,4 +1,53 @@
 (function () {
+const RATE_INTERVAL_MS = 1000;
+
+function createRateTracker(onTick) {
+  let count = 0;
+  let rate = 0;
+  let windowStart = 0;
+  let timerId = null;
+
+  function flushWindow(now = performance.now()) {
+    if (!windowStart) {
+      windowStart = now;
+      return;
+    }
+
+    const elapsedSec = (now - windowStart) / 1000;
+    rate = elapsedSec > 0 ? count / elapsedSec : 0;
+    count = 0;
+    windowStart = now;
+    onTick(rate);
+  }
+
+  return {
+    record() {
+      count += 1;
+    },
+    start() {
+      this.stop();
+      windowStart = performance.now();
+      count = 0;
+      rate = 0;
+      timerId = window.setInterval(() => {
+        flushWindow();
+      }, RATE_INTERVAL_MS);
+    },
+    stop() {
+      if (timerId) {
+        window.clearInterval(timerId);
+        timerId = null;
+      }
+      count = 0;
+      rate = 0;
+      windowStart = 0;
+    },
+    getRate() {
+      return rate;
+    },
+  };
+}
+
 function toUint8Array(data) {
   if (data instanceof Uint8Array) return data;
   if (Array.isArray(data)) return new Uint8Array(data);
@@ -64,27 +113,18 @@ function createCameraStream({
   let lastObjectUrl = null;
   let hasFrame = false;
   let lastLabel = '';
-  let lastMessageTime = 0;
-  let smoothedFps = 0;
 
-  function updateFrameRate() {
-    const now = performance.now();
-    if (lastMessageTime > 0) {
-      const intervalSec = (now - lastMessageTime) / 1000;
-      if (intervalSec > 0) {
-        const instantFps = 1 / intervalSec;
-        smoothedFps = smoothedFps === 0
-          ? instantFps
-          : smoothedFps * 0.85 + instantFps * 0.15;
-      }
-    }
-    lastMessageTime = now;
-  }
-
-  function formatStatusLabel() {
-    const fpsText = smoothedFps > 0 ? `${smoothedFps.toFixed(1)} fps` : '— fps';
+  function formatStatusLabel(fps = rateTracker.getRate()) {
+    const fpsText = fps > 0 ? `${fps.toFixed(1)} fps` : '— fps';
     return `${statusName} · ${fpsText}`;
   }
+
+  const rateTracker = createRateTracker((fps) => {
+    lastLabel = formatStatusLabel(fps);
+    if (hasFrame && onLive) {
+      onLive(lastLabel);
+    }
+  });
 
   function getContainerSize() {
     return {
@@ -142,7 +182,7 @@ function createCameraStream({
       sourceCanvas.height = img.height;
       sourceCtx.drawImage(img, 0, 0);
       hasFrame = true;
-      updateFrameRate();
+      rateTracker.record();
       lastLabel = formatStatusLabel();
       renderFrame();
     };
@@ -185,9 +225,8 @@ function createCameraStream({
     }
 
     hasFrame = false;
-    lastLabel = '';
-    lastMessageTime = 0;
-    smoothedFps = 0;
+    lastLabel = formatStatusLabel(0);
+    rateTracker.stop();
     sourceCanvas.width = 0;
     sourceCanvas.height = 0;
 
@@ -210,6 +249,7 @@ function createCameraStream({
       imageTopicObj.subscribe((message) => {
         drawCompressedImage(message);
       });
+      rateTracker.start();
       isSubscribed = true;
       return;
     }
