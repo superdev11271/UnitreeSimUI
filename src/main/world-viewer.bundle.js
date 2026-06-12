@@ -34269,6 +34269,7 @@ void main() {
         MIDDLE: MOUSE.PAN,
         RIGHT: MOUSE.DOLLY
       };
+      this.controls.zoomSpeed = 6;
       this.controls.addEventListener("start", (event) => {
         if (event?.mode === "pan") {
           this.orbitAroundRobot = false;
