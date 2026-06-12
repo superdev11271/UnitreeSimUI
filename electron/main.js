@@ -128,6 +128,10 @@ ipcMain.handle('assets:read-world-model', () => (
   fs.readFileSync(path.join(__dirname, '../src/assets/world.glb'))
 ));
 
+ipcMain.handle('assets:read-robot-model', () => (
+  fs.readFileSync(path.join(__dirname, '../src/assets/b2.glb'))
+));
+
 ipcMain.handle('simulator:launch', async (_event, options) => {
   connectionSettings = options;
   openMainWindow();

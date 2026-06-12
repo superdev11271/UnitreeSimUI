@@ -7,5 +7,6 @@ contextBridge.exposeInMainWorld('unitreeSim', {
   getConnectionSettings: () => ipcRenderer.invoke('connection:get-settings'),
   launchSimulator: (options) => ipcRenderer.invoke('simulator:launch', options),
   readWorldModel: () => ipcRenderer.invoke('assets:read-world-model'),
+  readRobotModel: () => ipcRenderer.invoke('assets:read-robot-model'),
   platform: process.platform,
 });

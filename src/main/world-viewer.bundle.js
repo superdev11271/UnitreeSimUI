@@ -33923,8 +33923,11 @@ void main() {
 
   // src/main/world-viewer.js
   var WORLD_MODEL_FALLBACK_URL = "../assets/world.glb";
+  var ROBOT_MODEL_FALLBACK_URL = "../assets/b2.glb";
   var WORLD_POSE_TOPIC = "/world_pose";
   var WORLD_POSE_TYPE = "nav_msgs/msg/Odometry";
+  var JOINT_STATES_TOPIC = "/joint_states";
+  var JOINT_STATES_TYPE = "sensor_msgs/msg/JointState";
   var LOAD_TIMEOUT_MS = 15e3;
   var TRANSPARENT_OPACITY = 0.22;
   var EDGE_THRESHOLD_DEG = 24;
@@ -33934,6 +33937,24 @@ void main() {
   var AXIS_BASE_LENGTH = 1;
   var AXIS_SCREEN_PX = 28;
   var AXIS_RENDER_ORDER = 9999;
+  var ROBOT_RENDER_ORDER = 9998;
+  var LEG_PREFIXES = ["FL", "FR", "RL", "RR"];
+  var AXIS_X = new Vector3(1, 0, 0);
+  var AXIS_Z = new Vector3(0, 0, 1);
+  var JOINT_BINDINGS = [
+    { name: "FL_hip_joint", axis: AXIS_X, sign: 1 },
+    { name: "FL_thigh_joint", axis: AXIS_Z, sign: -1 },
+    { name: "FL_calf_joint", axis: AXIS_Z, sign: -1 },
+    { name: "FR_hip_joint", axis: AXIS_X, sign: 1 },
+    { name: "FR_thigh_joint", axis: AXIS_Z, sign: -1 },
+    { name: "FR_calf_joint", axis: AXIS_Z, sign: -1 },
+    { name: "RL_hip_joint", axis: AXIS_X, sign: 1 },
+    { name: "RL_thigh_joint", axis: AXIS_Z, sign: -1 },
+    { name: "RL_calf_joint", axis: AXIS_Z, sign: -1 },
+    { name: "RR_hip_joint", axis: AXIS_X, sign: 1 },
+    { name: "RR_thigh_joint", axis: AXIS_Z, sign: -1 },
+    { name: "RR_calf_joint", axis: AXIS_Z, sign: -1 }
+  ];
   var ROS_TO_THREE_QUAT = new Quaternion().setFromEuler(
     new Euler(-Math.PI / 2, 0, 0)
   );
@@ -33942,6 +33963,7 @@ void main() {
   var viewModeBtn = document.getElementById("world-view-mode-btn");
   var focusRobotBtn = document.getElementById("world-focus-robot-btn");
   var followBtn = document.getElementById("world-follow-btn");
+  var robotViewBtn = document.getElementById("world-robot-view-btn");
   function setStatus(text, state) {
     if (!statusEl) return;
     statusEl.textContent = text;
@@ -33977,6 +33999,17 @@ void main() {
     const response = await fetch(WORLD_MODEL_FALLBACK_URL);
     if (!response.ok) {
       throw new Error(`Could not read world.glb (${response.status})`);
+    }
+    return response.arrayBuffer();
+  }
+  async function loadRobotModelBuffer() {
+    if (window.unitreeSim?.readRobotModel) {
+      const data = await window.unitreeSim.readRobotModel();
+      return toArrayBuffer(data);
+    }
+    const response = await fetch(ROBOT_MODEL_FALLBACK_URL);
+    if (!response.ok) {
+      throw new Error(`Could not read b2.glb (${response.status})`);
     }
     return response.arrayBuffer();
   }
@@ -34080,6 +34113,91 @@ void main() {
       object.renderOrder = AXIS_RENDER_ORDER;
     });
   }
+  function configureRobotModelMaterials(root) {
+    root.traverse((object) => {
+      if (!object.isMesh || !object.material) return;
+      object.renderOrder = ROBOT_RENDER_ORDER;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        material.transparent = false;
+        material.opacity = 1;
+        material.depthWrite = true;
+        material.depthTest = true;
+        material.fog = false;
+      }
+    });
+  }
+  function rebuildLegHierarchy(robotRoot) {
+    const baseLink = robotRoot.getObjectByName("base_link");
+    if (!baseLink) return false;
+    robotRoot.updateMatrixWorld(true);
+    const pivot = new Vector3();
+    for (const leg of LEG_PREFIXES) {
+      const hipJoint = robotRoot.getObjectByName(`${leg}_hip_joint`);
+      const hip = robotRoot.getObjectByName(`${leg}_hip`);
+      const thighJoint = robotRoot.getObjectByName(`${leg}_thigh_joint`);
+      const thigh = robotRoot.getObjectByName(`${leg}_thigh`);
+      const protectJoint = robotRoot.getObjectByName(`${leg}_thigh_protect_joint`);
+      const protect = robotRoot.getObjectByName(`${leg}_thigh_protect`);
+      const calfJoint = robotRoot.getObjectByName(`${leg}_calf_joint`);
+      const calf = robotRoot.getObjectByName(`${leg}_calf`);
+      const footJoint = robotRoot.getObjectByName(`${leg}_foot_joint`);
+      const foot = robotRoot.getObjectByName(`${leg}_foot`);
+      if (hipJoint && hip) {
+        hip.getWorldPosition(pivot);
+        baseLink.worldToLocal(pivot);
+        hipJoint.position.copy(pivot);
+        hipJoint.attach(hip);
+      }
+      if (thighJoint && thigh && hipJoint) {
+        thigh.getWorldPosition(pivot);
+        hipJoint.worldToLocal(pivot);
+        thighJoint.position.copy(pivot);
+        hipJoint.attach(thighJoint);
+        thighJoint.attach(thigh);
+      }
+      if (protectJoint && protect && thigh) {
+        protect.getWorldPosition(pivot);
+        thigh.worldToLocal(pivot);
+        protectJoint.position.copy(pivot);
+        protectJoint.attach(protect);
+      }
+      if (calfJoint && calf && thighJoint) {
+        calf.getWorldPosition(pivot);
+        thighJoint.worldToLocal(pivot);
+        calfJoint.position.copy(pivot);
+        thighJoint.attach(calfJoint);
+        calfJoint.attach(calf);
+      }
+      if (footJoint && foot && calfJoint) {
+        foot.getWorldPosition(pivot);
+        calfJoint.worldToLocal(pivot);
+        footJoint.position.copy(pivot);
+        calfJoint.attach(footJoint);
+        footJoint.attach(foot);
+      }
+    }
+    return true;
+  }
+  function buildJointMap(robotRoot) {
+    const jointMap = /* @__PURE__ */ new Map();
+    for (const binding of JOINT_BINDINGS) {
+      const joint = robotRoot.getObjectByName(binding.name);
+      if (!joint) continue;
+      jointMap.set(binding.name, {
+        joint,
+        axis: binding.axis,
+        sign: binding.sign ?? 1
+      });
+    }
+    return jointMap;
+  }
+  function applyJointAngle(joint, axis, angle, sign = 1) {
+    joint.quaternion.setFromAxisAngle(axis, angle * sign);
+  }
+  function alignRobotModel(robotModel) {
+    robotModel.rotation.set(Math.PI / 2, 0, 0);
+  }
   var WorldViewer = class {
     constructor(host) {
       this.host = host;
@@ -34127,9 +34245,18 @@ void main() {
       this.robotMarker = robotMarkerParts.root;
       this.robotAxes = robotMarkerParts.axes;
       configureRobotAxesMaterials(this.robotAxes);
+      this.robotModel = new Group();
+      this.robotModel.visible = false;
+      this.robotMarker.add(this.robotModel);
       this.scene.add(this.robotMarker);
       this.poseTopic = null;
+      this.jointStatesTopic = null;
       this.hasPose = false;
+      this.hasJointStates = false;
+      this.robotModelReady = false;
+      this.robotViewMode = "axis";
+      this.jointMap = /* @__PURE__ */ new Map();
+      this.lastJointStatesMessage = null;
       this.orbitAroundRobot = false;
       this.followMode = false;
       this.meshes = [];
@@ -34147,6 +34274,7 @@ void main() {
       this.resizeObserver = new ResizeObserver(this.onResize);
       this.resizeObserver.observe(this.host);
       this.loadModel();
+      this.loadRobotModel();
       this.resize();
       this.startLoop();
     }
@@ -34196,6 +34324,33 @@ void main() {
         "aria-pressed",
         this.followMode ? "true" : "false"
       );
+    }
+    updateRobotViewButton() {
+      if (!robotViewBtn) return;
+      const robotMode = this.robotViewMode === "robot";
+      robotViewBtn.classList.toggle("is-robot-view", robotMode);
+      robotViewBtn.setAttribute(
+        "aria-label",
+        robotMode ? "Axis view" : "Robot model view"
+      );
+      robotViewBtn.setAttribute(
+        "aria-pressed",
+        robotMode ? "true" : "false"
+      );
+    }
+    updateRobotDisplay() {
+      const showRobotModel = this.robotViewMode === "robot" && this.robotModelReady;
+      this.robotAxes.visible = !showRobotModel;
+      this.robotModel.visible = showRobotModel && this.hasPose;
+    }
+    setRobotViewMode(mode) {
+      if (mode !== "axis" && mode !== "robot") return;
+      this.robotViewMode = mode;
+      this.updateRobotDisplay();
+      this.updateRobotViewButton();
+    }
+    toggleRobotViewMode() {
+      this.setRobotViewMode(this.robotViewMode === "axis" ? "robot" : "axis");
     }
     applyFollowMode() {
       if (!this.followMode || !this.hasPose) return;
@@ -34290,7 +34445,7 @@ void main() {
       this.controls.update();
     }
     updateRobotAxesScreenScale() {
-      if (!this.robotMarker.visible) return;
+      if (!this.robotMarker.visible || this.robotViewMode !== "axis") return;
       const distance = this.camera.position.distanceTo(this.robotMarker.position);
       if (distance <= 0) return;
       const vFov = this.camera.fov * (Math.PI / 180);
@@ -34306,6 +34461,7 @@ void main() {
       this.robotMarker.quaternion.copy(orientation);
       this.robotMarker.visible = true;
       this.hasPose = true;
+      this.updateRobotDisplay();
       this.updateRobotAxesScreenScale();
       if (this.followMode) {
         this.applyFollowMode();
@@ -34319,18 +34475,72 @@ void main() {
         "is-live"
       );
     }
-    startPose(ros) {
-      if (!ros || this.poseTopic) return;
-      this.poseTopic = new ROSLIB.Topic({
+    updateJointStates(message) {
+      if (!message) return;
+      this.lastJointStatesMessage = message;
+      const names = message.name;
+      const positions = message.position;
+      if (!Array.isArray(names) || !Array.isArray(positions) || !this.jointMap.size) return;
+      for (let index = 0; index < names.length; index += 1) {
+        const binding = this.jointMap.get(names[index]);
+        if (!binding) continue;
+        applyJointAngle(binding.joint, binding.axis, positions[index] ?? 0, binding.sign);
+      }
+      this.hasJointStates = true;
+    }
+    startJointStates(ros) {
+      if (!ros || this.jointStatesTopic) return;
+      this.jointStatesTopic = new ROSLIB.Topic({
         ros,
-        name: WORLD_POSE_TOPIC,
-        messageType: WORLD_POSE_TYPE
+        name: JOINT_STATES_TOPIC,
+        messageType: JOINT_STATES_TYPE
       });
-      this.poseTopic.subscribe((message) => {
-        this.updateRobotPose(message);
+      this.jointStatesTopic.subscribe((message) => {
+        this.updateJointStates(message);
       });
-      if (!this.hasPose) {
-        setStatus(`Subscribed \xB7 ${WORLD_POSE_TOPIC}`, null);
+    }
+    startPose(ros) {
+      if (!ros) return;
+      if (!this.poseTopic) {
+        this.poseTopic = new ROSLIB.Topic({
+          ros,
+          name: WORLD_POSE_TOPIC,
+          messageType: WORLD_POSE_TYPE
+        });
+        this.poseTopic.subscribe((message) => {
+          this.updateRobotPose(message);
+        });
+        if (!this.hasPose) {
+          setStatus(`Subscribed \xB7 ${WORLD_POSE_TOPIC}`, null);
+        }
+      }
+      this.startJointStates(ros);
+    }
+    async loadRobotModel() {
+      try {
+        const buffer = await withTimeout(
+          loadRobotModelBuffer(),
+          LOAD_TIMEOUT_MS,
+          "Timed out loading b2.glb"
+        );
+        const loader = new GLTFLoader();
+        const gltf = await loader.parseAsync(buffer, "b2.glb");
+        const robotRoot = gltf.scene;
+        rebuildLegHierarchy(robotRoot);
+        this.robotModel.clear();
+        this.robotModel.add(robotRoot);
+        configureRobotModelMaterials(this.robotModel);
+        alignRobotModel(this.robotModel);
+        this.jointMap = buildJointMap(robotRoot);
+        this.robotModelReady = this.jointMap.size > 0;
+        if (this.lastJointStatesMessage) {
+          this.updateJointStates(this.lastJointStatesMessage);
+        }
+        this.updateRobotDisplay();
+        this.updateRobotViewButton();
+      } catch (error2) {
+        console.warn("Failed to load b2.glb", error2);
+        this.robotModelReady = false;
       }
     }
     async loadModel() {
@@ -34400,6 +34610,7 @@ void main() {
     destroy() {
       if (this.rafId) window.cancelAnimationFrame(this.rafId);
       if (this.poseTopic) this.poseTopic.unsubscribe();
+      if (this.jointStatesTopic) this.jointStatesTopic.unsubscribe();
       this.renderer.domElement.removeEventListener("pointerdown", this.onOrbitPointerDown, true);
       this.resizeObserver.disconnect();
       this.controls.dispose();
@@ -34416,6 +34627,9 @@ void main() {
     });
     followBtn?.addEventListener("click", () => {
       viewer.toggleFollowMode();
+    });
+    robotViewBtn?.addEventListener("click", () => {
+      viewer.toggleRobotViewMode();
     });
     window.unitreeWorld = { start: (ros) => viewer.startPose(ros) };
   } else {

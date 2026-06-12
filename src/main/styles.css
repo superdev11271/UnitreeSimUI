@@ -613,7 +613,8 @@ button {
 }
 
 .world-view-icon-btn .world-view-icon-outline,
-.world-view-icon-btn .world-view-icon-follow {
+.world-view-icon-btn .world-view-icon-follow,
+.world-view-icon-btn .world-view-icon-robot {
   display: none;
 }
 
@@ -633,6 +634,14 @@ button {
   display: block;
 }
 
+.world-view-icon-btn.is-robot-view .world-view-icon-axis {
+  display: none;
+}
+
+.world-view-icon-btn.is-robot-view .world-view-icon-robot {
+  display: block;
+}
+
 .world-view-icon-btn:hover:not(:disabled) {
   background: rgba(7, 11, 16, 0.58);
   color: var(--text-primary);
@@ -640,7 +649,8 @@ button {
 }
 
 .world-view-icon-btn.is-transparent,
-.world-view-icon-btn.is-follow {
+.world-view-icon-btn.is-follow,
+.world-view-icon-btn.is-robot-view {
   background: rgba(0, 229, 192, 0.1);
   color: var(--accent);
   border-color: rgba(0, 229, 192, 0.45);
