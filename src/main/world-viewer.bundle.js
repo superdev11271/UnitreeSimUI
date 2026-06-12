@@ -34251,6 +34251,8 @@ void main() {
       this.scene.add(this.robotMarker);
       this.poseTopic = null;
       this.jointStatesTopic = null;
+      this.ros = null;
+      this.isSubscribed = false;
       this.hasPose = false;
       this.hasJointStates = false;
       this.robotModelReady = false;
@@ -34469,7 +34471,7 @@ void main() {
       this.updateLiveStatus(position);
     }
     updateLiveStatus(position) {
-      if (!this.hasPose) return;
+      if (!this.hasPose || !this.isSubscribed) return;
       setStatus(
         `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
         "is-live"
@@ -34488,33 +34490,73 @@ void main() {
       }
       this.hasJointStates = true;
     }
-    startJointStates(ros) {
-      if (!ros || this.jointStatesTopic) return;
-      this.jointStatesTopic = new ROSLIB.Topic({
-        ros,
-        name: JOINT_STATES_TOPIC,
-        messageType: JOINT_STATES_TYPE
-      });
-      this.jointStatesTopic.subscribe((message) => {
-        this.updateJointStates(message);
-      });
-    }
-    startPose(ros) {
-      if (!ros) return;
+    ensurePoseTopics(ros) {
       if (!this.poseTopic) {
         this.poseTopic = new ROSLIB.Topic({
           ros,
           name: WORLD_POSE_TOPIC,
           messageType: WORLD_POSE_TYPE
         });
-        this.poseTopic.subscribe((message) => {
-          this.updateRobotPose(message);
-        });
-        if (!this.hasPose) {
-          setStatus("Waiting for robot pose\u2026", null);
-        }
       }
-      this.startJointStates(ros);
+      if (!this.jointStatesTopic) {
+        this.jointStatesTopic = new ROSLIB.Topic({
+          ros,
+          name: JOINT_STATES_TOPIC,
+          messageType: JOINT_STATES_TYPE
+        });
+      }
+    }
+    subscribePoseTopics() {
+      if (!this.poseTopic || !this.jointStatesTopic) return;
+      this.poseTopic.subscribe((message) => {
+        this.updateRobotPose(message);
+      });
+      this.jointStatesTopic.subscribe((message) => {
+        this.updateJointStates(message);
+      });
+      if (this.lastJointStatesMessage) {
+        this.updateJointStates(this.lastJointStatesMessage);
+      }
+      if (!this.hasPose) {
+        setStatus("Waiting for robot pose\u2026", null);
+      }
+    }
+    unsubscribePoseTopics() {
+      if (this.poseTopic) this.poseTopic.unsubscribe();
+      if (this.jointStatesTopic) this.jointStatesTopic.unsubscribe();
+    }
+    clearPanelData() {
+      this.robotMarker.visible = false;
+      this.hasPose = false;
+      this.hasJointStates = false;
+      for (const binding of this.jointMap.values()) {
+        binding.joint.quaternion.identity();
+      }
+      this.updateRobotDisplay();
+    }
+    setSubscribed(active) {
+      if (!this.ros) return;
+      if (active && !this.isSubscribed) {
+        this.subscribePoseTopics();
+        this.isSubscribed = true;
+        return;
+      }
+      if (!active) {
+        if (this.isSubscribed) {
+          this.unsubscribePoseTopics();
+        }
+        this.clearPanelData();
+        this.isSubscribed = false;
+        setStatus("Disabled", null);
+      }
+    }
+    startJointStates(ros) {
+      this.ensurePoseTopics(ros);
+    }
+    startPose(ros) {
+      if (!ros) return;
+      this.ros = ros;
+      this.ensurePoseTopics(ros);
     }
     async loadRobotModel() {
       try {
@@ -34561,7 +34603,7 @@ void main() {
         this.fitCameraToModel(this.modelRoot);
         if (this.hasPose) {
           this.updateLiveStatus(this.robotMarker.position);
-        } else {
+        } else if (this.isSubscribed) {
           setStatus("Waiting for robot pose\u2026", null);
         }
         this.resize();
@@ -34631,7 +34673,10 @@ void main() {
     robotViewBtn?.addEventListener("click", () => {
       viewer.toggleRobotViewMode();
     });
-    window.unitreeWorld = { start: (ros) => viewer.startPose(ros) };
+    window.unitreeWorld = {
+      start: (ros) => viewer.startPose(ros),
+      setSubscribed: (active) => viewer.setSubscribed(active)
+    };
   } else {
     setStatus("World viewer panel not ready", "is-error");
   }

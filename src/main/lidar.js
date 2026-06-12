@@ -16,6 +16,7 @@ let messageCount = 0;
 let lastMessageTime = 0;
 let smoothedHz = 0;
 let viewer = null;
+let isSubscribed = false;
 
 function setStatus(text, state) {
   if (!statusEl) return;
@@ -589,6 +590,17 @@ class LidarViewer {
     this.needsRender = true;
   }
 
+  clearPoints() {
+    this.pointCount = 0;
+
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.pointPosBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(0), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.pointColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(0), gl.DYNAMIC_DRAW);
+    this.needsRender = true;
+  }
+
   drawLines() {
     const gl = this.gl;
     gl.useProgram(this.lineProgram);
@@ -728,22 +740,56 @@ function startLidar(ros) {
     return;
   }
 
-  if (lidarTopic) {
-    lidarTopic.unsubscribe();
+  if (!lidarTopic) {
+    lidarTopic = new ROSLIB.Topic({
+      ros,
+      name: LIDAR_TOPIC,
+      messageType: DEFAULT_MESSAGE_TYPE,
+    });
   }
-
-  lidarTopic = new ROSLIB.Topic({
-    ros,
-    name: LIDAR_TOPIC,
-    messageType: DEFAULT_MESSAGE_TYPE,
-  });
-
-  lidarTopic.subscribe((message) => {
-    handlePointCloud(message);
-  });
 
   setStatus('Waiting for lidar…', null);
   viewer.needsRender = true;
+}
+
+function resetLidarMetrics() {
+  messageCount = 0;
+  lastMessageTime = 0;
+  smoothedHz = 0;
+}
+
+function clearLidarData() {
+  if (viewer) {
+    viewer.clearPoints();
+    viewer.render();
+  }
+  resetLidarMetrics();
+}
+
+function setLidarSubscribed(active) {
+  if (!lidarTopic) {
+    if (!active) clearLidarData();
+    return;
+  }
+
+  if (active && !isSubscribed) {
+    lidarTopic.subscribe((message) => {
+      handlePointCloud(message);
+    });
+    isSubscribed = true;
+    setStatus('Waiting for lidar…', null);
+    if (viewer) viewer.needsRender = true;
+    return;
+  }
+
+  if (!active) {
+    if (isSubscribed) {
+      lidarTopic.unsubscribe();
+    }
+    clearLidarData();
+    isSubscribed = false;
+    setStatus('Disabled', null);
+  }
 }
 
 if (container) {
@@ -753,5 +799,5 @@ if (container) {
   resizeObserver.observe(container);
 }
 
-window.unitreeLidar = { start: startLidar };
+window.unitreeLidar = { start: startLidar, setSubscribed: setLidarSubscribed };
 })();

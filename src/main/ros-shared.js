@@ -185,45 +185,49 @@ async function initMainSensors() {
   try {
     const ros = await connectWithRetry();
 
-    if (window.unitreeCamera?.start) {
-      try {
-        window.unitreeCamera.start(ros);
-      } catch (error) {
-        const message = error.message || 'Camera start failed';
-        window.unitreeCamera?.primary?.setStatus(message, 'is-error');
-        window.unitreeCamera?.third?.setStatus(message, 'is-error');
-      }
+    if (window.unitreePanelManager?.init) {
+      window.unitreePanelManager.init(ros);
     } else {
-      window.unitreeCamera?.primary?.setStatus('Camera module not loaded', 'is-error');
-      window.unitreeCamera?.third?.setStatus('Camera module not loaded', 'is-error');
-    }
-
-    if (window.unitreeLidar?.start) {
-      try {
-        window.unitreeLidar.start(ros);
-      } catch (error) {
-        setLidarStatus(error.message || 'Lidar start failed', 'is-error');
+      if (window.unitreeCamera?.start) {
+        try {
+          window.unitreeCamera.start(ros);
+        } catch (error) {
+          const message = error.message || 'Camera start failed';
+          window.unitreeCamera?.primary?.setStatus(message, 'is-error');
+          window.unitreeCamera?.third?.setStatus(message, 'is-error');
+        }
+      } else {
+        window.unitreeCamera?.primary?.setStatus('Camera module not loaded', 'is-error');
+        window.unitreeCamera?.third?.setStatus('Camera module not loaded', 'is-error');
       }
-    } else {
-      setLidarStatus('Lidar module not loaded', 'is-error');
-    }
 
-    if (window.unitreeRobotControl?.start) {
-      try {
-        window.unitreeRobotControl.start(ros);
-      } catch {
-        // robot control is optional until joystick is used
+      if (window.unitreeLidar?.start) {
+        try {
+          window.unitreeLidar.start(ros);
+        } catch (error) {
+          setLidarStatus(error.message || 'Lidar start failed', 'is-error');
+        }
+      } else {
+        setLidarStatus('Lidar module not loaded', 'is-error');
       }
-    }
 
-    if (window.unitreeWorld?.start) {
-      try {
-        window.unitreeWorld.start(ros);
-      } catch (error) {
-        const worldStatus = document.getElementById('world-status');
-        if (worldStatus) {
-          worldStatus.textContent = error.message || 'World pose start failed';
-          worldStatus.classList.add('is-error');
+      if (window.unitreeRobotControl?.start) {
+        try {
+          window.unitreeRobotControl.start(ros);
+        } catch {
+          // robot control is optional until joystick is used
+        }
+      }
+
+      if (window.unitreeWorld?.start) {
+        try {
+          window.unitreeWorld.start(ros);
+        } catch (error) {
+          const worldStatus = document.getElementById('world-status');
+          if (worldStatus) {
+            worldStatus.textContent = error.message || 'World pose start failed';
+            worldStatus.classList.add('is-error');
+          }
         }
       }
     }

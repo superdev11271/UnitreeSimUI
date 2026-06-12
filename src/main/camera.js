@@ -45,7 +45,9 @@ function createCameraStream({
 }) {
   if (!mainCanvas || !pipCanvas || !mainContainer || !pipContainer) {
     return {
-      subscribe() {},
+      init() {},
+      setSubscribed() {},
+      clearData() {},
       setRenderTarget() {},
       renderFrame() {},
       getStatusLabel() {
@@ -150,26 +152,82 @@ function createCameraStream({
     img.src = lastObjectUrl;
   }
 
-  function subscribe(ros) {
-    const info = new ROSLIB.Topic({
-      ros,
-      name: infoTopic,
-      messageType: 'sensor_msgs/msg/CameraInfo',
-    });
-    info.subscribe(() => {});
+  let imageTopicObj = null;
+  let infoTopicObj = null;
+  let isSubscribed = false;
 
-    const image = new ROSLIB.Topic({
-      ros,
-      name: imageTopic,
-      messageType: 'sensor_msgs/msg/CompressedImage',
-    });
-    image.subscribe((message) => {
-      drawCompressedImage(message);
-    });
+  function ensureTopics(ros) {
+    if (!infoTopicObj) {
+      infoTopicObj = new ROSLIB.Topic({
+        ros,
+        name: infoTopic,
+        messageType: 'sensor_msgs/msg/CameraInfo',
+      });
+    }
+
+    if (!imageTopicObj) {
+      imageTopicObj = new ROSLIB.Topic({
+        ros,
+        name: imageTopic,
+        messageType: 'sensor_msgs/msg/CompressedImage',
+      });
+    }
+  }
+
+  function init(ros) {
+    ensureTopics(ros);
+  }
+
+  function clearData() {
+    if (lastObjectUrl) {
+      URL.revokeObjectURL(lastObjectUrl);
+      lastObjectUrl = null;
+    }
+
+    hasFrame = false;
+    lastLabel = '';
+    lastMessageTime = 0;
+    smoothedFps = 0;
+    sourceCanvas.width = 0;
+    sourceCanvas.height = 0;
+
+    const { width, height } = getContainerSize();
+    if (width > 0 && height > 0) {
+      canvas.width = width;
+      canvas.height = height;
+      ctx.clearRect(0, 0, width, height);
+    }
+  }
+
+  function setSubscribed(active) {
+    if (!imageTopicObj || !infoTopicObj) {
+      if (!active) clearData();
+      return;
+    }
+
+    if (active && !isSubscribed) {
+      infoTopicObj.subscribe(() => {});
+      imageTopicObj.subscribe((message) => {
+        drawCompressedImage(message);
+      });
+      isSubscribed = true;
+      return;
+    }
+
+    if (!active) {
+      if (isSubscribed) {
+        imageTopicObj.unsubscribe();
+        infoTopicObj.unsubscribe();
+      }
+      clearData();
+      isSubscribed = false;
+    }
   }
 
   return {
-    subscribe,
+    init,
+    setSubscribed,
+    clearData,
     setRenderTarget,
     renderFrame,
     getStatusLabel() {
@@ -191,6 +249,7 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
   let mainCameraKey = defaultMainKey;
   let frontStream = null;
   let backStream = null;
+  let isSubscribed = false;
 
   function setStatus(text, state) {
     if (!statusEl) return;
@@ -200,6 +259,11 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
   }
 
   function updateMainStatus() {
+    if (!isSubscribed) {
+      setStatus('Disabled', null);
+      return;
+    }
+
     const mainStream = mainCameraKey === 'front' ? frontStream : backStream;
     const label = mainStream?.getStatusLabel?.();
     if (label) {
@@ -268,17 +332,41 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
       },
     });
 
-    frontStream.subscribe(ros);
-    backStream.subscribe(ros);
+    frontStream.init(ros);
+    backStream.init(ros);
     applyLayout();
     setStatus('Waiting for camera…', null);
+  }
+
+  function clearCanvases() {
+    for (const canvas of [mainCanvas, pipCanvas]) {
+      if (!canvas) continue;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  function setSubscribed(active) {
+    if (!frontStream || !backStream) return;
+
+    isSubscribed = active;
+    frontStream.setSubscribed(active);
+    backStream.setSubscribed(active);
+
+    if (active) {
+      updateMainStatus();
+      return;
+    }
+
+    clearCanvases();
+    setStatus('Disabled', null);
   }
 
   if (swapBtn) {
     swapBtn.addEventListener('click', swapMainCamera);
   }
 
-  return { start, setStatus };
+  return { start, setSubscribed, setStatus };
 }
 
 const primaryPanel = createCameraPanel({

@@ -39,10 +39,22 @@
       <div class="workspace" id="workspace">
         <section class="sub-panel" data-panel="1">
           <div class="sub-panel-body camera-panel">
-            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
-              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
-              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
-            </button>
+            <div class="panel-header-controls">
+              <button class="panel-btn panel-toggle" type="button" aria-label="Disable panel" aria-pressed="true">
+                <svg class="icon-enabled" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <circle cx="6" cy="6" r="1.35" fill="currentColor" stroke="none" />
+                </svg>
+                <svg class="icon-disabled hidden" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <path d="M3.5 8.5 8.5 3.5" />
+                </svg>
+              </button>
+              <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+                <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+                <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+              </button>
+            </div>
             <canvas id="main-camera-canvas" aria-label="Main camera feed"></canvas>
             <div class="camera-crosshair" aria-hidden="true">
               <svg viewBox="0 0 24 24">
@@ -96,10 +108,22 @@
 
         <section class="sub-panel" data-panel="2">
           <div class="sub-panel-body lidar-panel">
-            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
-              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
-              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
-            </button>
+            <div class="panel-header-controls">
+              <button class="panel-btn panel-toggle" type="button" aria-label="Disable panel" aria-pressed="true">
+                <svg class="icon-enabled" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <circle cx="6" cy="6" r="1.35" fill="currentColor" stroke="none" />
+                </svg>
+                <svg class="icon-disabled hidden" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <path d="M3.5 8.5 8.5 3.5" />
+                </svg>
+              </button>
+              <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+                <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+                <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+              </button>
+            </div>
             <canvas id="lidar-canvas" aria-label="Lidar point cloud"></canvas>
             <p class="lidar-status" id="lidar-status">Waiting for lidar…</p>
           </div>
@@ -107,10 +131,22 @@
 
         <section class="sub-panel" data-panel="3">
           <div class="sub-panel-body camera-panel">
-            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
-              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
-              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
-            </button>
+            <div class="panel-header-controls">
+              <button class="panel-btn panel-toggle" type="button" aria-label="Disable panel" aria-pressed="true">
+                <svg class="icon-enabled" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <circle cx="6" cy="6" r="1.35" fill="currentColor" stroke="none" />
+                </svg>
+                <svg class="icon-disabled hidden" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <path d="M3.5 8.5 8.5 3.5" />
+                </svg>
+              </button>
+              <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+                <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+                <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+              </button>
+            </div>
             <canvas id="third-main-camera-canvas" aria-label="Third main camera feed"></canvas>
             <div class="camera-pip">
               <button class="camera-swap-btn" id="third-camera-swap-btn" type="button" aria-label="Swap third camera">
@@ -126,10 +162,22 @@
 
         <section class="sub-panel" data-panel="4">
           <div class="sub-panel-body world-panel">
-            <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
-              <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
-              <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
-            </button>
+            <div class="panel-header-controls">
+              <button class="panel-btn panel-toggle" type="button" aria-label="Disable panel" aria-pressed="true">
+                <svg class="icon-enabled" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <circle cx="6" cy="6" r="1.35" fill="currentColor" stroke="none" />
+                </svg>
+                <svg class="icon-disabled hidden" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="6" cy="6" r="3.75" fill="none" />
+                  <path d="M3.5 8.5 8.5 3.5" />
+                </svg>
+              </button>
+              <button class="panel-btn panel-maximize" type="button" aria-label="Maximize panel">
+                <svg class="icon-maximize" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+                <svg class="icon-restore hidden" viewBox="0 0 12 12"><path d="M4 2.5h5.5V8M8 4H2.5V9.5" /></svg>
+              </button>
+            </div>
             <div class="world-view-toolbar" aria-label="World viewer controls">
               <button
                 class="world-view-icon-btn"

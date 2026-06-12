@@ -37,6 +37,42 @@ const panels = [...document.querySelectorAll('.sub-panel')];
 
 let maximizedPanel = null;
 
+const PANEL_HANDLERS = {
+  1: (active) => window.unitreeCamera?.primary?.setSubscribed?.(active),
+  2: (active) => window.unitreeLidar?.setSubscribed?.(active),
+  3: (active) => window.unitreeCamera?.third?.setSubscribed?.(active),
+  4: (active) => window.unitreeWorld?.setSubscribed?.(active),
+};
+
+function isPanelEnabled(panel) {
+  return !panel.classList.contains('is-panel-disabled');
+}
+
+function shouldPanelSubscribe(panel) {
+  if (!isPanelEnabled(panel)) return false;
+  if (!maximizedPanel) return true;
+  return maximizedPanel === panel;
+}
+
+function syncPanelSubscriptions() {
+  panels.forEach((panel) => {
+    const panelId = panel.dataset.panel;
+    const handler = PANEL_HANDLERS[panelId];
+    if (!handler) return;
+    handler(shouldPanelSubscribe(panel));
+  });
+}
+
+function updatePanelToggleUi(panel) {
+  const toggleBtn = panel.querySelector('.panel-toggle');
+  if (!toggleBtn) return;
+
+  const enabled = isPanelEnabled(panel);
+  toggleBtn.classList.toggle('is-off', !enabled);
+  toggleBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  toggleBtn.setAttribute('aria-label', enabled ? 'Disable panel' : 'Enable panel');
+}
+
 function setPanelMaximized(panel, maximized) {
   const btn = panel.querySelector('.panel-maximize');
   const iconMax = btn.querySelector('.icon-maximize');
@@ -57,6 +93,8 @@ function setPanelMaximized(panel, maximized) {
     iconRestore.classList.add('hidden');
     btn.setAttribute('aria-label', 'Maximize panel');
   }
+
+  syncPanelSubscriptions();
 }
 
 function togglePanelMaximize(panel) {
@@ -72,11 +110,35 @@ function togglePanelMaximize(panel) {
   setPanelMaximized(panel, true);
 }
 
+function togglePanelEnabled(panel) {
+  panel.classList.toggle('is-panel-disabled');
+  updatePanelToggleUi(panel);
+  syncPanelSubscriptions();
+}
+
 panels.forEach((panel) => {
-  panel.querySelector('.panel-maximize').addEventListener('click', () => {
+  updatePanelToggleUi(panel);
+
+  panel.querySelector('.panel-toggle')?.addEventListener('click', () => {
+    togglePanelEnabled(panel);
+  });
+
+  panel.querySelector('.panel-maximize')?.addEventListener('click', () => {
     togglePanelMaximize(panel);
   });
 });
+
+window.unitreePanelManager = {
+  init(ros) {
+    window.unitreeCamera?.start?.(ros);
+    window.unitreeLidar?.start?.(ros);
+    window.unitreeWorld?.start?.(ros);
+    window.unitreeRobotControl?.start?.(ros);
+    syncPanelSubscriptions();
+  },
+
+  syncSubscriptions: syncPanelSubscriptions,
+};
 
 document.getElementById('btn-minimize').addEventListener('click', () => {
   window.unitreeSim.minimizeWindow();
