@@ -35,6 +35,7 @@ function drawCover(destCtx, destCanvas, source, destWidth, destHeight) {
 function createCameraStream({
   imageTopic,
   infoTopic,
+  statusName,
   mainCanvas,
   pipCanvas,
   mainContainer,
@@ -47,6 +48,9 @@ function createCameraStream({
       subscribe() {},
       setRenderTarget() {},
       renderFrame() {},
+      getStatusLabel() {
+        return null;
+      },
     };
   }
 
@@ -58,6 +62,27 @@ function createCameraStream({
   let lastObjectUrl = null;
   let hasFrame = false;
   let lastLabel = '';
+  let lastMessageTime = 0;
+  let smoothedFps = 0;
+
+  function updateFrameRate() {
+    const now = performance.now();
+    if (lastMessageTime > 0) {
+      const intervalSec = (now - lastMessageTime) / 1000;
+      if (intervalSec > 0) {
+        const instantFps = 1 / intervalSec;
+        smoothedFps = smoothedFps === 0
+          ? instantFps
+          : smoothedFps * 0.85 + instantFps * 0.15;
+      }
+    }
+    lastMessageTime = now;
+  }
+
+  function formatStatusLabel() {
+    const fpsText = smoothedFps > 0 ? `${smoothedFps.toFixed(1)} fps` : '— fps';
+    return `${statusName} · ${fpsText}`;
+  }
 
   function getContainerSize() {
     return {
@@ -91,22 +116,17 @@ function createCameraStream({
   }
 
   function drawCompressedImage(message) {
-    const { format, data } = message;
+    const { data } = message;
     const bytes = toUint8Array(data);
     if (!bytes.length) return;
 
-    const normalizedFormat = String(format || '').toLowerCase();
+    const normalizedFormat = String(message.format || '').toLowerCase();
     let mime = 'image/jpeg';
-    let labelFormat = 'jpeg';
 
     if (normalizedFormat.includes('png')) {
       mime = 'image/png';
-      labelFormat = 'png';
     } else if (normalizedFormat.includes('jpeg') || normalizedFormat.includes('jpg')) {
       mime = 'image/jpeg';
-      labelFormat = 'jpeg';
-    } else if (normalizedFormat) {
-      labelFormat = normalizedFormat;
     }
 
     if (lastObjectUrl) {
@@ -120,7 +140,8 @@ function createCameraStream({
       sourceCanvas.height = img.height;
       sourceCtx.drawImage(img, 0, 0);
       hasFrame = true;
-      lastLabel = `${img.width}×${img.height} · ${labelFormat}`;
+      updateFrameRate();
+      lastLabel = formatStatusLabel();
       renderFrame();
     };
     img.onerror = () => {
@@ -147,7 +168,14 @@ function createCameraStream({
     });
   }
 
-  return { subscribe, setRenderTarget, renderFrame };
+  return {
+    subscribe,
+    setRenderTarget,
+    renderFrame,
+    getStatusLabel() {
+      return hasFrame ? lastLabel : null;
+    },
+  };
 }
 
 function createCameraPanel({ topics, defaultMainKey, elements }) {
@@ -171,6 +199,16 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
     if (state) statusEl.classList.add(state);
   }
 
+  function updateMainStatus() {
+    const mainStream = mainCameraKey === 'front' ? frontStream : backStream;
+    const label = mainStream?.getStatusLabel?.();
+    if (label) {
+      setStatus(label, 'is-live');
+    } else {
+      setStatus('Waiting for camera…', null);
+    }
+  }
+
   function applyLayout() {
     if (!frontStream || !backStream || !mainCanvas || !pipCanvas || !panelContainer || !pipContainer) {
       return;
@@ -192,6 +230,7 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
 
     frontStream.renderFrame();
     backStream.renderFrame();
+    updateMainStatus();
   }
 
   function swapMainCamera() {
@@ -232,7 +271,7 @@ function createCameraPanel({ topics, defaultMainKey, elements }) {
     frontStream.subscribe(ros);
     backStream.subscribe(ros);
     applyLayout();
-    setStatus(`Subscribed · ${topics[mainCameraKey].imageTopic}`, null);
+    setStatus('Waiting for camera…', null);
   }
 
   if (swapBtn) {
@@ -249,11 +288,13 @@ const primaryPanel = createCameraPanel({
       imageTopic: '/camera_front/camera_sensor/image_raw/compressed',
       infoTopic: '/camera_front/camera_sensor/camera_info',
       label: 'Front Camera',
+      statusName: 'Front',
     },
     back: {
       imageTopic: '/camera_back/camera_sensor/image_raw/compressed',
       infoTopic: '/camera_back/camera_sensor/camera_info',
       label: 'Back Camera',
+      statusName: 'Back',
     },
   },
   elements: {
@@ -273,11 +314,13 @@ const thirdPanel = createCameraPanel({
       imageTopic: '/camera_third_front/camera_sensor/image_raw/compressed',
       infoTopic: '/camera_third_front/camera_sensor/camera_info',
       label: 'Third Front Camera',
+      statusName: 'Third front',
     },
     back: {
       imageTopic: '/camera_third_back/camera_sensor/image_raw/compressed',
       infoTopic: '/camera_third_back/camera_sensor/camera_info',
       label: 'Third Back Camera',
+      statusName: 'Third back',
     },
   },
   elements: {

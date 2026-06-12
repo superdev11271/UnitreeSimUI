@@ -656,7 +656,7 @@ class WorldViewer {
   updateLiveStatus(position) {
     if (!this.hasPose) return;
     setStatus(
-      `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)} · left rotate · right zoom · middle pan`,
+      `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
       'is-live',
     );
   }
@@ -707,7 +707,7 @@ class WorldViewer {
       });
 
       if (!this.hasPose) {
-        setStatus(`Subscribed · ${WORLD_POSE_TOPIC}`, null);
+        setStatus('Waiting for robot pose…', null);
       }
     }
 
@@ -767,7 +767,7 @@ class WorldViewer {
       if (this.hasPose) {
         this.updateLiveStatus(this.robotMarker.position);
       } else {
-        setStatus('World model loaded · waiting for /world_pose', 'is-live');
+        setStatus('Waiting for robot pose…', null);
       }
       this.resize();
     } catch (error) {

@@ -34471,7 +34471,7 @@ void main() {
     updateLiveStatus(position) {
       if (!this.hasPose) return;
       setStatus(
-        `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)} \xB7 left rotate \xB7 right zoom \xB7 middle pan`,
+        `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
         "is-live"
       );
     }
@@ -34511,7 +34511,7 @@ void main() {
           this.updateRobotPose(message);
         });
         if (!this.hasPose) {
-          setStatus(`Subscribed \xB7 ${WORLD_POSE_TOPIC}`, null);
+          setStatus("Waiting for robot pose\u2026", null);
         }
       }
       this.startJointStates(ros);
@@ -34562,7 +34562,7 @@ void main() {
         if (this.hasPose) {
           this.updateLiveStatus(this.robotMarker.position);
         } else {
-          setStatus("World model loaded \xB7 waiting for /world_pose", "is-live");
+          setStatus("Waiting for robot pose\u2026", null);
         }
         this.resize();
       } catch (error2) {

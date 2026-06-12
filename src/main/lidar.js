@@ -13,6 +13,8 @@ const statusEl = document.getElementById('lidar-status');
 
 let lidarTopic = null;
 let messageCount = 0;
+let lastMessageTime = 0;
+let smoothedHz = 0;
 let viewer = null;
 
 function setStatus(text, state) {
@@ -673,8 +675,28 @@ function ensureViewer() {
   return viewer;
 }
 
+function updateMessageRate() {
+  const now = performance.now();
+  if (lastMessageTime > 0) {
+    const intervalSec = (now - lastMessageTime) / 1000;
+    if (intervalSec > 0) {
+      const instantHz = 1 / intervalSec;
+      smoothedHz = smoothedHz === 0
+        ? instantHz
+        : smoothedHz * 0.85 + instantHz * 0.15;
+    }
+  }
+  lastMessageTime = now;
+}
+
+function formatLidarStatus(pointCount) {
+  const hzText = smoothedHz > 0 ? `${smoothedHz.toFixed(1)} Hz` : '— Hz';
+  return `${pointCount.toLocaleString()} pts · ${hzText}`;
+}
+
 function handlePointCloud(message) {
   messageCount += 1;
+  updateMessageRate();
   const { points, reason } = parsePointCloud2(message);
 
   if (!points.length) {
@@ -687,7 +709,7 @@ function handlePointCloud(message) {
   try {
     const activeViewer = ensureViewer();
     activeViewer.setPoints(points);
-    setStatus(`${points.length.toLocaleString()} pts · left drag rotate · right drag zoom`, 'is-live');
+    setStatus(formatLidarStatus(points.length), 'is-live');
   } catch (error) {
     setStatus(error.message || 'Lidar render failed', 'is-error');
   }
@@ -720,7 +742,7 @@ function startLidar(ros) {
     handlePointCloud(message);
   });
 
-  setStatus(`Subscribed · ${LIDAR_TOPIC}`, null);
+  setStatus('Waiting for lidar…', null);
   viewer.needsRender = true;
 }
 
