@@ -3,8 +3,6 @@
   const CMD_CTL_TOPIC = '/cmd_ctl';
   const CMD_STAND_UP = 10001;
   const CMD_STAND_DOWN = 10002;
-  const CMD_POST_RESET = 10003;
-  const CMD_RESET_SIMULATION = 10004;
   const LINEAR_SPEED = 0.6;
   const LATERAL_SPEED = 0.4;
   const ANGULAR_SPEED = 1.0;
@@ -282,16 +280,6 @@
     }
   }
 
-  function publishResetSimulation() {
-    window.unitreeRos.getConnection().then((ros) => {
-      ensureCmdCtlTopic(ros);
-      publishCmdCtl(CMD_RESET_SIMULATION);
-      window.setTimeout(() => {
-        publishCmdCtl(CMD_POST_RESET);
-      }, 1000);
-    });
-  }
-
   function startRobotControl(ros) {
     if (!cmdVelTopic) {
       cmdVelTopic = new ROSLIB.Topic({
@@ -325,5 +313,5 @@
 
   updateLockUi();
 
-  window.unitreeRobotControl = { start: startRobotControl, publishResetSimulation };
+  window.unitreeRobotControl = { start: startRobotControl };
 })();

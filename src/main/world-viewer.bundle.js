@@ -34517,6 +34517,19 @@ void main() {
       this.robotMarker.quaternion.copy(orientation);
       this.robotMarker.visible = true;
       this.hasPose = true;
+      this.lastRosPose = {
+        position: {
+          x: pose.position.x,
+          y: pose.position.y,
+          z: pose.position.z
+        },
+        orientation: {
+          x: pose.orientation.x,
+          y: pose.orientation.y,
+          z: pose.orientation.z,
+          w: pose.orientation.w
+        }
+      };
       this.lastStatusPosition = position;
       this.poseRateTracker.record();
       this.updateRobotDisplay();
@@ -34588,10 +34601,18 @@ void main() {
       if (this.poseTopic) this.poseTopic.unsubscribe();
       if (this.jointStatesTopic) this.jointStatesTopic.unsubscribe();
     }
+    getCurrentRosPose() {
+      if (!this.lastRosPose) return null;
+      return {
+        position: { ...this.lastRosPose.position },
+        orientation: { ...this.lastRosPose.orientation }
+      };
+    }
     clearPanelData() {
       this.robotMarker.visible = false;
       this.hasPose = false;
       this.hasJointStates = false;
+      this.lastRosPose = null;
       for (const binding of this.jointMap.values()) {
         binding.joint.quaternion.identity();
       }
@@ -34742,7 +34763,8 @@ void main() {
     });
     window.unitreeWorld = {
       start: (ros) => viewer.startPose(ros),
-      setSubscribed: (active) => viewer.setSubscribed(active)
+      setSubscribed: (active) => viewer.setSubscribed(active),
+      getCurrentRosPose: () => viewer.getCurrentRosPose()
     };
   } else {
     setStatus("World viewer panel not ready", "is-error");

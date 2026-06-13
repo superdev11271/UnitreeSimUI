@@ -40,7 +40,7 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 document.getElementById('btn-reset-simulation')?.addEventListener('click', () => {
-  window.unitreeRobotControl?.publishResetSimulation();
+  window.unitreeResetSimulation?.openDialog();
 });
 
 const workspace = document.getElementById('workspace');

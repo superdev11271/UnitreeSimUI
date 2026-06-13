@@ -286,11 +286,54 @@
       </div>
     </div>
 
+    <div class="dialog-overlay hidden" id="reset-dialog" aria-hidden="true">
+      <div class="reset-dialog" role="dialog" aria-labelledby="reset-dialog-title" aria-modal="true">
+        <header class="reset-dialog-header">
+          <h3 id="reset-dialog-title">Reset Simulation</h3>
+          <button class="reset-dialog-close" id="reset-dialog-close" type="button" aria-label="Close">×</button>
+        </header>
+        <div class="reset-dialog-body">
+          <p class="reset-dialog-desc">
+            Save robot spawn points and reset the simulator to any saved pose, or to the current pose when nothing is selected.
+          </p>
+          <div class="reset-dialog-section">
+            <label class="reset-dialog-label" for="reset-position-name">Position name</label>
+            <input
+              class="reset-dialog-input"
+              id="reset-position-name"
+              type="text"
+              maxlength="64"
+              placeholder="Optional name for save"
+              autocomplete="off"
+            />
+          </div>
+          <div class="reset-dialog-actions-row">
+            <button class="reset-dialog-btn" id="reset-save-position" type="button">Save current position</button>
+            <button class="reset-dialog-btn reset-dialog-btn-danger" id="reset-delete-position" type="button" disabled>
+              Delete selected
+            </button>
+          </div>
+          <div class="reset-dialog-section">
+            <p class="reset-dialog-label">Saved positions</p>
+            <div class="reset-position-list" id="reset-position-list"></div>
+          </div>
+          <p class="reset-dialog-message" id="reset-dialog-message" aria-live="polite"></p>
+          <div class="reset-dialog-footer">
+            <button class="reset-dialog-btn" id="reset-cancel" type="button">Cancel</button>
+            <button class="reset-dialog-btn reset-dialog-btn-primary" id="reset-confirm" type="button">
+              Reset simulation
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="../../node_modules/roslib/build/roslib.min.js"></script>
     <script src="sensor-status.js"></script>
     <script src="camera.js"></script>
     <script src="lidar.js"></script>
     <script src="robot-control.js"></script>
+    <script src="reset-simulation.js"></script>
     <script src="renderer.js"></script>
     <script src="world-viewer.bundle.js"></script>
     <script src="ros-shared.js"></script>
