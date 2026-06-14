@@ -114,6 +114,7 @@
 
   function applyVelocity() {
     publishCmdVel(buildTwist());
+    syncKnobVisual();
 
     if (isControlActive()) {
       startPublishing();
@@ -143,6 +144,40 @@
     maxOffset = Math.max(8, (baseSize - knobSize) / 2);
   }
 
+  function syncKnobVisual() {
+    if (!knobEl) return;
+
+    if (movementLocked) {
+      knobEl.style.left = '50%';
+      knobEl.style.top = '50%';
+      joystickEl?.classList.remove('is-active');
+      return;
+    }
+
+    updateMaxOffset();
+
+    let x = 0;
+    let y = 0;
+    let active = false;
+
+    if (joystickActive) {
+      x = joystickValue.x;
+      y = joystickValue.y;
+      active = true;
+    } else {
+      const keyboard = getKeyboardInput();
+      x = clamp(-keyboard.yaw);
+      y = clamp(keyboard.forward);
+      active = x !== 0 || y !== 0 || keyboard.lateral !== 0;
+    }
+
+    const dx = x * maxOffset;
+    const dy = -y * maxOffset;
+    knobEl.style.left = `calc(50% + ${dx}px)`;
+    knobEl.style.top = `calc(50% + ${dy}px)`;
+    joystickEl?.classList.toggle('is-active', active);
+  }
+
   function setKnobOffset(dx, dy) {
     if (!knobEl || movementLocked) return;
 
@@ -153,8 +188,6 @@
       dy *= scale;
     }
 
-    knobEl.style.left = `calc(50% + ${dx}px)`;
-    knobEl.style.top = `calc(50% + ${dy}px)`;
     joystickValue = {
       x: maxOffset ? dx / maxOffset : 0,
       y: maxOffset ? -dy / maxOffset : 0,
@@ -163,14 +196,10 @@
   }
 
   function resetKnob() {
-    if (knobEl) {
-      knobEl.style.left = '50%';
-      knobEl.style.top = '50%';
-    }
     joystickValue = { x: 0, y: 0 };
     joystickActive = false;
     pointerId = null;
-    joystickEl?.classList.remove('is-active');
+    syncKnobVisual();
   }
 
   function pointerPosition(event) {
@@ -207,7 +236,9 @@
     if (baseEl.hasPointerCapture(event.pointerId)) {
       baseEl.releasePointerCapture(event.pointerId);
     }
-    resetKnob();
+    joystickActive = false;
+    pointerId = null;
+    joystickValue = { x: 0, y: 0 };
     applyVelocity();
     event.preventDefault();
   }
