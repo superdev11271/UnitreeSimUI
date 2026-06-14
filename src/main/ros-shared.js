@@ -168,75 +168,32 @@ async function connectWithRetry(attempts = 3) {
   throw lastError;
 }
 
-async function initMainSensors() {
-  const lidarStatus = document.getElementById('lidar-status');
+function setWorldStatus(text, state) {
+  const worldStatus = document.getElementById('world-status');
+  if (!worldStatus) return;
 
-  const setLidarStatus = (text, state) => {
-    if (!lidarStatus) return;
-    lidarStatus.textContent = text;
-    lidarStatus.classList.remove('is-live', 'is-error');
-    if (state) lidarStatus.classList.add(state);
-  };
+  if (window.unitreeSensorStatus?.setPanelStatus) {
+    window.unitreeSensorStatus.setPanelStatus(worldStatus, text, { state, mode: state ? 'error' : 'waiting' });
+    return;
+  }
 
-  window.unitreeCamera?.primary?.setStatus('Connecting…');
-  window.unitreeCamera?.third?.setStatus('Connecting…');
-  setLidarStatus('Connecting…');
+  worldStatus.textContent = text;
+  worldStatus.classList.remove('is-live', 'is-error');
+  if (state) worldStatus.classList.add(state);
+}
+
+async function initMainApp() {
+  setWorldStatus('Connecting…');
 
   try {
     const ros = await connectWithRetry();
 
-    if (window.unitreePanelManager?.init) {
-      window.unitreePanelManager.init(ros);
-    } else {
-      if (window.unitreeCamera?.start) {
-        try {
-          window.unitreeCamera.start(ros);
-        } catch (error) {
-          const message = error.message || 'Camera start failed';
-          window.unitreeCamera?.primary?.setStatus(message, 'is-error');
-          window.unitreeCamera?.third?.setStatus(message, 'is-error');
-        }
-      } else {
-        window.unitreeCamera?.primary?.setStatus('Camera module not loaded', 'is-error');
-        window.unitreeCamera?.third?.setStatus('Camera module not loaded', 'is-error');
-      }
-
-      if (window.unitreeLidar?.start) {
-        try {
-          window.unitreeLidar.start(ros);
-        } catch (error) {
-          setLidarStatus(error.message || 'Lidar start failed', 'is-error');
-        }
-      } else {
-        setLidarStatus('Lidar module not loaded', 'is-error');
-      }
-
-      if (window.unitreeRobotControl?.start) {
-        try {
-          window.unitreeRobotControl.start(ros);
-        } catch {
-          // robot control is optional until joystick is used
-        }
-      }
-
-      if (window.unitreeWorld?.start) {
-        try {
-          window.unitreeWorld.start(ros);
-        } catch (error) {
-          const worldStatus = document.getElementById('world-status');
-          if (worldStatus) {
-            worldStatus.textContent = error.message || 'World pose start failed';
-            worldStatus.classList.add('is-error');
-          }
-        }
-      }
-    }
+    window.unitreeRobotControl?.start?.(ros);
+    window.unitreeWorld?.start?.(ros);
+    window.unitreeWorld?.setSubscribed?.(true);
   } catch (error) {
-    const message = error.message || 'ROS connection failed';
-    window.unitreeCamera?.primary?.setStatus(message, 'is-error');
-    window.unitreeCamera?.third?.setStatus(message, 'is-error');
-    setLidarStatus(message, 'is-error');
+    setWorldStatus(error.message || 'ROS connection failed', 'is-error');
   }
 }
 
-initMainSensors();
+initMainApp();

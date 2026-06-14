@@ -34002,7 +34002,7 @@ void main() {
   var ROS_TO_THREE_QUAT = new Quaternion().setFromEuler(
     new Euler(-Math.PI / 2, 0, 0)
   );
-  var container = document.querySelector('[data-panel="4"] .world-viewer-host');
+  var container = document.getElementById("world-viewer");
   var statusEl = document.getElementById("world-status");
   var viewModeBtn = document.getElementById("world-view-mode-btn");
   var focusRobotBtn = document.getElementById("world-focus-robot-btn");

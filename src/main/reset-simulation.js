@@ -13,12 +13,24 @@
   const resetBtn = document.getElementById('reset-confirm');
   const cancelBtn = document.getElementById('reset-cancel');
   const closeBtn = document.getElementById('reset-dialog-close');
+  const toastEl = document.getElementById('app-toast');
+  const toastIconEl = document.getElementById('app-toast-icon');
+  const toastTextEl = document.getElementById('app-toast-text');
+  const toastProgressEl = document.getElementById('app-toast-progress');
 
   if (!dialog || !listEl) return;
 
   let resetTopic = null;
   let selectedId = null;
   let savedPositions = loadPositions();
+  let toastTimer = null;
+  let toastHideTimer = null;
+
+  const TOAST_DURATION_MS = 3200;
+  const TOAST_ICONS = {
+    'is-success': '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M4 8.25 6.75 11 12 5"/></svg>',
+    'is-error': '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M5 5l6 6M11 5l-6 6"/></svg>',
+  };
 
   function loadPositions() {
     try {
@@ -70,6 +82,53 @@
 
   function clearMessage() {
     setMessage('', null);
+  }
+
+  function hideToast() {
+    if (!toastEl || toastEl.classList.contains('hidden')) return;
+
+    toastEl.classList.remove('is-visible');
+    toastEl.classList.add('is-hiding');
+
+    window.clearTimeout(toastHideTimer);
+    toastHideTimer = window.setTimeout(() => {
+      toastEl.classList.add('hidden');
+      toastEl.classList.remove('is-hiding', 'is-success', 'is-error');
+    }, 260);
+  }
+
+  function showToast(message, type = 'is-success') {
+    if (!toastEl || !toastTextEl) return;
+
+    window.clearTimeout(toastTimer);
+    window.clearTimeout(toastHideTimer);
+
+    toastEl.classList.remove('hidden', 'is-hiding', 'is-visible', 'is-success', 'is-error');
+    toastEl.classList.add(type);
+    toastTextEl.textContent = message;
+
+    if (toastIconEl) {
+      toastIconEl.innerHTML = TOAST_ICONS[type] ?? TOAST_ICONS['is-success'];
+    }
+
+    if (toastProgressEl) {
+      toastProgressEl.style.animation = 'none';
+      void toastProgressEl.offsetWidth;
+      toastProgressEl.style.animation = `app-toast-progress ${TOAST_DURATION_MS}ms linear forwards`;
+    }
+
+    window.requestAnimationFrame(() => {
+      toastEl.classList.add('is-visible');
+    });
+
+    toastTimer = window.setTimeout(hideToast, TOAST_DURATION_MS);
+  }
+
+  function getResetLabel(activeSelectedId) {
+    if (activeSelectedId) {
+      return savedPositions.find((item) => item.id === activeSelectedId)?.name ?? 'saved position';
+    }
+    return 'current position';
   }
 
   function getCurrentPose() {
@@ -187,9 +246,10 @@
 
   function resetSimulation() {
     let pose = null;
+    const activeSelectedId = selectedId;
 
-    if (selectedId) {
-      const entry = savedPositions.find((item) => item.id === selectedId);
+    if (activeSelectedId) {
+      const entry = savedPositions.find((item) => item.id === activeSelectedId);
       if (entry) {
         pose = entry.pose;
       }
@@ -203,20 +263,15 @@
       }
     }
 
-    resetBtn.disabled = true;
+    const label = getResetLabel(activeSelectedId);
+    closeDialog();
+
     publishResetPose(pose)
       .then(() => {
-        const label = selectedId
-          ? savedPositions.find((item) => item.id === selectedId)?.name ?? 'saved position'
-          : 'current position';
-        setMessage(`Reset published at ${label}.`, 'is-success');
-        window.setTimeout(closeDialog, 700);
+        showToast(`Simulation reset at ${label}.`, 'is-success');
       })
       .catch((error) => {
-        setMessage(error?.message || 'Failed to publish reset.', 'is-error');
-      })
-      .finally(() => {
-        resetBtn.disabled = false;
+        showToast(error?.message || 'Failed to publish reset.', 'is-error');
       });
   }
 

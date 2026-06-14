@@ -8,13 +8,13 @@
   const ANGULAR_SPEED = 1.0;
   const PUBLISH_HZ = 20;
 
-  const controlsEl = document.querySelector('[data-panel="1"] .robot-controls');
+  const controlsEl = document.querySelector('.main-view .robot-controls');
   const joystickEl = document.getElementById('move-joystick');
   const baseEl = joystickEl?.querySelector('.joystick-base');
   const knobEl = joystickEl?.querySelector('.joystick-knob');
-  const selectBtn = document.querySelector('[data-panel="1"] .robot-cmd-btn[data-cmd="select"]');
-  const startBtn = document.querySelector('[data-panel="1"] .robot-cmd-btn[data-cmd="start"]');
-  const commandButtons = document.querySelectorAll('[data-panel="1"] .robot-cmd-btn');
+  const selectBtn = document.querySelector('.main-view .robot-cmd-btn[data-cmd="select"]');
+  const startBtn = document.querySelector('.main-view .robot-cmd-btn[data-cmd="start"]');
+  const commandButtons = document.querySelectorAll('.main-view .robot-cmd-btn');
 
   let joystickActive = false;
   let pointerId = null;

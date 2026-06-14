@@ -91,7 +91,7 @@ const ROS_TO_THREE_QUAT = new THREE.Quaternion().setFromEuler(
   new THREE.Euler(-Math.PI / 2, 0, 0),
 );
 
-const container = document.querySelector('[data-panel="4"] .world-viewer-host');
+const container = document.getElementById('world-viewer');
 const statusEl = document.getElementById('world-status');
 const viewModeBtn = document.getElementById('world-view-mode-btn');
 const focusRobotBtn = document.getElementById('world-focus-robot-btn');
