@@ -34253,7 +34253,11 @@ void main() {
       this.scene.background = new Color(461584);
       this.camera = new PerspectiveCamera(50, 1, 0.1, 2e3);
       this.camera.position.set(10, 8, 10);
-      this.renderer = new WebGLRenderer({ antialias: true, alpha: false });
+      this.renderer = new WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        logarithmicDepthBuffer: true
+      });
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       this.renderer.outputColorSpace = SRGBColorSpace;
       this.renderer.toneMapping = ACESFilmicToneMapping;
@@ -34324,6 +34328,7 @@ void main() {
       this._viewDir = new Vector3();
       this._hitPoint = new Vector3();
       this._cameraOffset = new Vector3();
+      this._sceneFar = 2e3;
       this.onOrbitPointerDown = this.onOrbitPointerDown.bind(this);
       this.rafId = null;
       this.onResize = () => this.resize();
@@ -34495,10 +34500,20 @@ void main() {
         center.y + distance * 0.65,
         center.z + distance
       );
-      this.camera.near = Math.max(0.01, maxDim / 200);
-      this.camera.far = Math.max(500, maxDim * 20);
-      this.camera.updateProjectionMatrix();
+      this._sceneFar = Math.max(500, maxDim * 20);
+      this.updateCameraClipPlanes(true);
       this.controls.update();
+    }
+    updateCameraClipPlanes(force = false) {
+      const distance = Math.max(0.1, this.camera.position.distanceTo(this.controls.target));
+      const near = Math.max(0.02, distance * 2e-3);
+      const far = Math.max(this._sceneFar, distance * 12);
+      if (!force && Math.abs(this.camera.near - near) < near * 0.05 && Math.abs(this.camera.far - far) < far * 0.05) {
+        return;
+      }
+      this.camera.near = near;
+      this.camera.far = far;
+      this.camera.updateProjectionMatrix();
     }
     updateRobotAxesScreenScale() {
       if (!this.robotMarker.visible || this.robotViewMode !== "axis") return;
@@ -34724,6 +34739,7 @@ void main() {
       this.applyFollowMode();
       this.updateRobotAxesScreenScale();
       this.controls.update();
+      this.updateCameraClipPlanes();
       if (this.transparentView && this.robotMarker.visible) {
         this.renderTransparentWithAxesOverlay();
         return;
