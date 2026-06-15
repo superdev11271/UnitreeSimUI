@@ -204,6 +204,10 @@ button {
   background: #ff3b30;
 }
 
+.robot-controls.is-hidden {
+  display: none;
+}
+
 .robot-controls {
   --robot-cmd-btn-width: clamp(80px, 17cqmin, 104px);
   position: absolute;
@@ -488,6 +492,22 @@ button {
   display: block;
 }
 
+.world-view-icon-btn.is-controls-visible .world-view-icon-controls-off {
+  display: none;
+}
+
+.world-view-icon-btn.is-controls-visible .world-view-icon-controls-on {
+  display: block;
+}
+
+.world-view-icon-btn:not(.is-controls-visible) .world-view-icon-controls-on {
+  display: none;
+}
+
+.world-view-icon-btn:not(.is-controls-visible) .world-view-icon-controls-off {
+  display: block;
+}
+
 .world-view-icon-btn:hover:not(:disabled) {
   background: rgba(7, 11, 16, 0.58);
   color: var(--text-primary);
@@ -496,7 +516,8 @@ button {
 
 .world-view-icon-btn.is-transparent,
 .world-view-icon-btn.is-follow,
-.world-view-icon-btn.is-robot-view {
+.world-view-icon-btn.is-robot-view,
+.world-view-icon-btn.is-controls-visible {
   background: rgba(0, 229, 192, 0.1);
   color: var(--accent);
   border-color: rgba(0, 229, 192, 0.45);

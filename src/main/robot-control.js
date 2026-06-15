@@ -23,6 +23,7 @@
   const baseEl = joystickEl?.querySelector('.joystick-base');
   const knobEl = joystickEl?.querySelector('.joystick-knob');
   const modeToggleBtn = document.getElementById('robot-mode-toggle');
+  const robotControlsPanel = document.getElementById('robot-controls');
   const commandButtons = document.querySelectorAll('.main-view .robot-cmd-btn:not(.robot-mode-toggle)');
 
   let joystickActive = false;
@@ -53,6 +54,26 @@
     return Math.max(-1, Math.min(1, value));
   }
 
+  function isControlsPanelEnabled() {
+    return robotControlsPanel && !robotControlsPanel.classList.contains('is-hidden');
+  }
+
+  function resetMovementInput() {
+    pressedKeys.clear();
+    joystickActive = false;
+    pointerId = null;
+    joystickValue = { x: 0, y: 0 };
+    joystickEl?.classList.remove('is-active');
+    publishCmdVel(stopTwist);
+    stopPublishing();
+    syncKnobVisual();
+  }
+
+  function setControlsEnabled(enabled) {
+    if (enabled) return;
+    resetMovementInput();
+  }
+
   function getKeyboardInput() {
     let forward = 0;
     let yaw = 0;
@@ -69,6 +90,10 @@
   }
 
   function buildTwist() {
+    if (!isControlsPanelEnabled()) {
+      return stopTwist;
+    }
+
     const keyboard = getKeyboardInput();
     const joyX = joystickActive ? joystickValue.x : 0;
     const joyY = joystickActive ? joystickValue.y : 0;
@@ -92,6 +117,7 @@
   }
 
   function isControlActive() {
+    if (!isControlsPanelEnabled()) return false;
     return joystickActive || pressedKeys.size > 0;
   }
 
@@ -346,7 +372,7 @@
   }
 
   function onPointerDown(event) {
-    if (!baseEl || joystickActive) return;
+    if (!isControlsPanelEnabled() || !baseEl || joystickActive) return;
     joystickActive = true;
     pointerId = event.pointerId;
     joystickEl.classList.add('is-active');
@@ -383,7 +409,7 @@
   }
 
   function onKeyDown(event) {
-    if (isTypingTarget(event.target)) return;
+    if (!isControlsPanelEnabled() || isTypingTarget(event.target)) return;
     if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
 
     if (!pressedKeys.has(event.code)) {
@@ -394,6 +420,7 @@
   }
 
   function onKeyUp(event) {
+    if (!isControlsPanelEnabled()) return;
     if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
 
     if (pressedKeys.delete(event.code)) {
@@ -510,5 +537,6 @@
   window.unitreeRobotControl = {
     start: startRobotControl,
     refreshRobotMode,
+    setControlsEnabled,
   };
 })();

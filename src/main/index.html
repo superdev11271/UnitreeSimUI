@@ -126,13 +126,37 @@
               <circle cx="8" cy="8" r="1.35" fill="currentColor" />
             </svg>
           </button>
+          <button
+            class="world-view-icon-btn"
+            id="world-controls-toggle-btn"
+            type="button"
+            aria-label="Show controls"
+            aria-pressed="false"
+          >
+            <svg class="world-view-icon world-view-icon-controls-on" viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="3.25" y="3.25" width="3.25" height="3.25" rx="0.6" fill="currentColor" />
+              <rect x="9.5" y="3.25" width="3.25" height="3.25" rx="0.6" fill="currentColor" />
+              <rect x="3.25" y="9.5" width="3.25" height="3.25" rx="0.6" fill="currentColor" />
+              <rect x="9.5" y="9.5" width="3.25" height="3.25" rx="0.6" fill="currentColor" />
+            </svg>
+            <svg class="world-view-icon world-view-icon-controls-off" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 11.5h8M6.5 8.5 8 6.5 9.5 8.5"
+              />
+            </svg>
+          </button>
         </div>
         <div id="world-viewer" class="world-viewer-host" aria-label="World model preview"></div>
         <p class="world-status" id="world-status">
           <span class="sensor-status-dot is-waiting" aria-hidden="true"></span>
           <span class="sensor-status-text">Loading world model…</span>
         </p>
-        <div class="robot-controls" aria-label="Robot controls">
+        <div class="robot-controls is-hidden" id="robot-controls" aria-label="Robot controls">
           <div class="robot-cmd-group robot-cmd-group-left">
             <div class="robot-cmd-row">
               <button class="robot-cmd-btn" type="button" data-cmd="speed-normal">Normal</button>

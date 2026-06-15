@@ -43,6 +43,24 @@ document.getElementById('btn-reset-simulation')?.addEventListener('click', () =>
   window.unitreeResetSimulation?.openDialog();
 });
 
+const controlsToggleBtn = document.getElementById('world-controls-toggle-btn');
+const robotControls = document.getElementById('robot-controls');
+
+function setControlsPanelVisible(visible) {
+  robotControls?.classList.toggle('is-hidden', !visible);
+  controlsToggleBtn?.classList.toggle('is-controls-visible', visible);
+  controlsToggleBtn?.setAttribute('aria-pressed', visible ? 'true' : 'false');
+  controlsToggleBtn?.setAttribute('aria-label', visible ? 'Hide controls' : 'Show controls');
+  window.unitreeRobotControl?.setControlsEnabled?.(visible);
+}
+
+controlsToggleBtn?.addEventListener('click', () => {
+  const visible = !robotControls?.classList.contains('is-hidden');
+  setControlsPanelVisible(!visible);
+});
+
+setControlsPanelVisible(false);
+
 document.getElementById('btn-minimize').addEventListener('click', () => {
   window.unitreeSim.minimizeWindow();
 });
