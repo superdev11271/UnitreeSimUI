@@ -14,9 +14,13 @@
     SPEED_FAST: 1007,
     SPEED_SLOW: 1008,
   };
-  const LINEAR_SPEED = 0.6;
-  const LATERAL_SPEED = 0.4;
-  const ANGULAR_SPEED = 1.0;
+  const FAST_LEVEL_MULTIPLIER = 1.3;
+  const AI_SPEED_LIMITS = {
+    linearX: 0.6 * FAST_LEVEL_MULTIPLIER,
+    linearY: 0.4 * FAST_LEVEL_MULTIPLIER,
+    angularZ: 0.8 * FAST_LEVEL_MULTIPLIER,
+  };
+  const SPORT_LINEAR_MAGNITUDE = 1.5 * FAST_LEVEL_MULTIPLIER;
   const PUBLISH_HZ = 20;
 
   const joystickEl = document.getElementById('move-joystick');
@@ -89,6 +93,28 @@
     return { forward, yaw, lateral };
   }
 
+  function getSpeedLimits() {
+    if (robotMode === 'sport') {
+      return { kind: 'sport', linearMagnitude: SPORT_LINEAR_MAGNITUDE, angularZ: AI_SPEED_LIMITS.angularZ };
+    }
+
+    return { kind: 'ai', ...AI_SPEED_LIMITS };
+  }
+
+  function scaleSportLinear(forward, lateral, maxMagnitude) {
+    let linearX = forward * maxMagnitude;
+    let linearY = lateral * maxMagnitude;
+    const magnitude = Math.hypot(linearX, linearY);
+
+    if (magnitude > maxMagnitude) {
+      const scale = maxMagnitude / magnitude;
+      linearX *= scale;
+      linearY *= scale;
+    }
+
+    return { x: linearX, y: linearY };
+  }
+
   function buildTwist() {
     if (!isControlsPanelEnabled()) {
       return stopTwist;
@@ -106,13 +132,23 @@
       return stopTwist;
     }
 
+    const limits = getSpeedLimits();
+
+    if (limits.kind === 'sport') {
+      const linear = scaleSportLinear(forward, lateral, limits.linearMagnitude);
+      return {
+        linear: { x: linear.x, y: linear.y, z: 0 },
+        angular: { x: 0, y: 0, z: yaw * limits.angularZ },
+      };
+    }
+
     return {
       linear: {
-        x: forward * LINEAR_SPEED,
-        y: lateral * LATERAL_SPEED,
+        x: forward * limits.linearX,
+        y: lateral * limits.linearY,
         z: 0,
       },
-      angular: { x: 0, y: 0, z: yaw * ANGULAR_SPEED },
+      angular: { x: 0, y: 0, z: yaw * limits.angularZ },
     };
   }
 
@@ -244,6 +280,9 @@
 
     robotMode = parsed.kind;
     updateModeToggleUi();
+    if (isControlActive()) {
+      applyVelocity();
+    }
   }
 
   function queryRobotMode() {
