@@ -324,6 +324,10 @@
     updateModeToggleUi();
 
     publishCmdCtl(nextCode);
+    window.unitreeAppToast?.show?.(
+      `Changing to ${nextKind === 'ai' ? 'AI' : 'Sport'}…`,
+      'is-success',
+    );
 
     clearModeChangeTimers();
     modeChangeQueryTimer = window.setTimeout(queryRobotMode, 500);
@@ -490,6 +494,21 @@
     applyVelocity();
   }
 
+  const COMMAND_TOASTS = {
+    select: 'Joints locked',
+    start: 'Joints unlocked',
+    'stand-up': 'Stand up',
+    'stand-down': 'Stand down',
+    'speed-fast': 'Speed: Fast',
+    'speed-normal': 'Speed: Normal',
+  };
+
+  function showCommandToast(cmd) {
+    const message = COMMAND_TOASTS[cmd];
+    if (!message) return;
+    window.unitreeAppToast?.show?.(message, 'is-success');
+  }
+
   function flashButton(button) {
     button.classList.add('is-pressed');
     window.setTimeout(() => {
@@ -504,13 +523,9 @@
 
     if (cmd === 'select') {
       publishCmdCtl(CMD_SDK.LOCK_JOINTS);
-      return;
-    }
-    if (cmd === 'start') {
+    } else if (cmd === 'start') {
       publishCmdCtl(CMD_SDK.UNLOCK_JOINTS);
-      return;
-    }
-    if (cmd === 'stand-up') {
+    } else if (cmd === 'stand-up') {
       publishCmdCtl(CMD_SDK.BALANCE_STAND);
     } else if (cmd === 'stand-down') {
       publishCmdCtl(CMD_SDK.STAND_DOWN);
@@ -520,6 +535,7 @@
       applyDefaultSpeedLevel();
     }
 
+    showCommandToast(cmd);
     flashButton(button);
   }
 

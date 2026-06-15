@@ -40,6 +40,7 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 document.getElementById('btn-reset-simulation')?.addEventListener('click', () => {
+  window.unitreeAppToast?.show?.('Reset simulation', 'is-success');
   window.unitreeResetSimulation?.openDialog();
 });
 
