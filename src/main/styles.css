@@ -596,6 +596,19 @@ button {
   -webkit-app-region: no-drag;
 }
 
+.confirm-dialog {
+  width: min(400px, 100%);
+  max-height: none;
+}
+
+.confirm-dialog .reset-dialog-body {
+  padding: 0 20px 20px;
+}
+
+.confirm-dialog .reset-dialog-footer {
+  margin-top: 8px;
+}
+
 .reset-dialog-header {
   display: flex;
   align-items: center;

@@ -251,6 +251,22 @@
       </div>
     </div>
 
+    <div class="dialog-overlay hidden" id="close-confirm-dialog" aria-hidden="true">
+      <div class="reset-dialog confirm-dialog" role="dialog" aria-labelledby="close-confirm-title" aria-modal="true">
+        <header class="reset-dialog-header">
+          <h3 id="close-confirm-title">Close simulator?</h3>
+          <button class="reset-dialog-close" id="close-confirm-dismiss" type="button" aria-label="Close">×</button>
+        </header>
+        <div class="reset-dialog-body">
+          <p class="reset-dialog-desc">Are you sure you want to close Unitree B2 Simulator?</p>
+          <div class="reset-dialog-footer">
+            <button class="reset-dialog-btn" id="close-confirm-cancel" type="button">Cancel</button>
+            <button class="reset-dialog-btn reset-dialog-btn-danger" id="close-confirm-ok" type="button">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="app-toast hidden" id="app-toast" role="status" aria-live="polite">
       <span class="app-toast-icon" id="app-toast-icon" aria-hidden="true"></span>
       <span class="app-toast-text" id="app-toast-text"></span>

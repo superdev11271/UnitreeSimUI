@@ -80,6 +80,45 @@ maximizeBtn?.addEventListener('click', async () => {
   setFullScreenUi(isFullScreen);
 });
 
+const closeConfirmDialog = document.getElementById('close-confirm-dialog');
+const closeConfirmCancelBtn = document.getElementById('close-confirm-cancel');
+const closeConfirmDismissBtn = document.getElementById('close-confirm-dismiss');
+const closeConfirmOkBtn = document.getElementById('close-confirm-ok');
+
+function openCloseConfirmDialog() {
+  if (!closeConfirmDialog) {
+    window.unitreeSim.closeWindow();
+    return;
+  }
+
+  closeConfirmDialog.classList.remove('hidden');
+  closeConfirmDialog.setAttribute('aria-hidden', 'false');
+  closeConfirmCancelBtn?.focus();
+}
+
+function closeCloseConfirmDialog() {
+  if (!closeConfirmDialog) return;
+  closeConfirmDialog.classList.add('hidden');
+  closeConfirmDialog.setAttribute('aria-hidden', 'true');
+}
+
 document.getElementById('btn-close').addEventListener('click', () => {
+  openCloseConfirmDialog();
+});
+
+closeConfirmCancelBtn?.addEventListener('click', closeCloseConfirmDialog);
+closeConfirmDismissBtn?.addEventListener('click', closeCloseConfirmDialog);
+closeConfirmOkBtn?.addEventListener('click', () => {
   window.unitreeSim.closeWindow();
+});
+
+closeConfirmDialog?.addEventListener('click', (event) => {
+  if (event.target === closeConfirmDialog) {
+    closeCloseConfirmDialog();
+  }
+});
+
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || closeConfirmDialog?.classList.contains('hidden')) return;
+  closeCloseConfirmDialog();
 });
