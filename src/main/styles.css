@@ -218,10 +218,6 @@ button {
   background: #ff3b30;
 }
 
-.robot-controls.is-hidden {
-  display: none;
-}
-
 .robot-controls {
   --robot-cmd-btn-width: clamp(80px, 17cqmin, 104px);
   position: absolute;
@@ -231,7 +227,28 @@ button {
   display: flex;
   align-items: center;
   gap: clamp(8px, 2.5cqmin, 14px);
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  transition:
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0s;
+}
+
+.robot-controls.is-hidden {
+  transform: translateX(-50%) translateY(calc(100% + 28px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0.32s;
+}
+
+.robot-controls.is-hidden > * {
   pointer-events: none;
 }
 
