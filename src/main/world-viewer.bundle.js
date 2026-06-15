@@ -34309,7 +34309,7 @@ void main() {
       this.hasPose = false;
       this.hasJointStates = false;
       this.robotModelReady = false;
-      this.robotViewMode = "axis";
+      this.robotViewMode = "robot";
       this.jointMap = /* @__PURE__ */ new Map();
       this.lastJointStatesMessage = null;
       this.lastStatusPosition = null;
@@ -34336,6 +34336,7 @@ void main() {
       this.resizeObserver.observe(this.host);
       this.loadModel();
       this.loadRobotModel();
+      this.updateRobotViewButton();
       this.resize();
       this.startLoop();
     }

@@ -447,7 +447,7 @@ class WorldViewer {
     this.hasPose = false;
     this.hasJointStates = false;
     this.robotModelReady = false;
-    this.robotViewMode = 'axis';
+    this.robotViewMode = 'robot';
     this.jointMap = new Map();
     this.lastJointStatesMessage = null;
     this.lastStatusPosition = null;
@@ -475,6 +475,7 @@ class WorldViewer {
 
     this.loadModel();
     this.loadRobotModel();
+    this.updateRobotViewButton();
     this.resize();
     this.startLoop();
   }
