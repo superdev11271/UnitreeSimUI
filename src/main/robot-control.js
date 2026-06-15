@@ -1,26 +1,31 @@
 (function () {
   const CMD_VEL_TOPIC = '/cmd_vel';
-  const CMD_CTL_TOPIC = '/cmd_ctl';
-  const CMD_STAND_UP = 10001;
-  const CMD_STAND_DOWN = 10002;
+  const CMD_CTL_SDK_TOPIC = '/cmd_ctl_sdk';
+  const CMD_SDK = {
+    DAMP: 1000,
+    BALANCE_STAND: 1001,
+    STAND_DOWN: 1002,
+    LOCK_JOINTS: 1003,
+    UNLOCK_JOINTS: 1004,
+    AI_MODE: 1005,
+    SPORT_MODE: 1006,
+    SPEED_FAST: 1007,
+    SPEED_SLOW: 1008,
+  };
   const LINEAR_SPEED = 0.6;
   const LATERAL_SPEED = 0.4;
   const ANGULAR_SPEED = 1.0;
   const PUBLISH_HZ = 20;
 
-  const controlsEl = document.querySelector('.main-view .robot-controls');
   const joystickEl = document.getElementById('move-joystick');
   const baseEl = joystickEl?.querySelector('.joystick-base');
   const knobEl = joystickEl?.querySelector('.joystick-knob');
-  const selectBtn = document.querySelector('.main-view .robot-cmd-btn[data-cmd="select"]');
-  const startBtn = document.querySelector('.main-view .robot-cmd-btn[data-cmd="start"]');
   const commandButtons = document.querySelectorAll('.main-view .robot-cmd-btn');
 
   let joystickActive = false;
   let pointerId = null;
   let maxOffset = 0;
   let joystickValue = { x: 0, y: 0 };
-  let movementLocked = false;
   let cmdVelTopic = null;
   let cmdCtlTopic = null;
   let publishTimer = null;
@@ -33,12 +38,6 @@
 
   function clamp(value) {
     return Math.max(-1, Math.min(1, value));
-  }
-
-  function updateLockUi() {
-    controlsEl?.classList.toggle('is-locked', movementLocked);
-    selectBtn?.classList.toggle('is-active', movementLocked);
-    startBtn?.classList.toggle('is-active', !movementLocked);
   }
 
   function getKeyboardInput() {
@@ -57,10 +56,6 @@
   }
 
   function buildTwist() {
-    if (movementLocked) {
-      return stopTwist;
-    }
-
     const keyboard = getKeyboardInput();
     const joyX = joystickActive ? joystickValue.x : 0;
     const joyY = joystickActive ? joystickValue.y : 0;
@@ -84,7 +79,6 @@
   }
 
   function isControlActive() {
-    if (movementLocked) return false;
     return joystickActive || pressedKeys.size > 0;
   }
 
@@ -106,7 +100,7 @@
   }
 
   function startPublishing() {
-    if (publishTimer || !cmdVelTopic || movementLocked) return;
+    if (publishTimer || !cmdVelTopic) return;
     publishTimer = window.setInterval(() => {
       publishCmdVel(buildTwist());
     }, 1000 / PUBLISH_HZ);
@@ -123,20 +117,6 @@
     }
   }
 
-  function lockMovement() {
-    movementLocked = true;
-    resetKnob();
-    pressedKeys.clear();
-    publishCmdVel(stopTwist);
-    stopPublishing();
-    updateLockUi();
-  }
-
-  function unlockMovement() {
-    movementLocked = false;
-    updateLockUi();
-  }
-
   function updateMaxOffset() {
     if (!baseEl || !knobEl) return;
     const baseSize = baseEl.clientWidth;
@@ -146,13 +126,6 @@
 
   function syncKnobVisual() {
     if (!knobEl) return;
-
-    if (movementLocked) {
-      knobEl.style.left = '50%';
-      knobEl.style.top = '50%';
-      joystickEl?.classList.remove('is-active');
-      return;
-    }
 
     updateMaxOffset();
 
@@ -179,7 +152,7 @@
   }
 
   function setKnobOffset(dx, dy) {
-    if (!knobEl || movementLocked) return;
+    if (!knobEl) return;
 
     const distance = Math.hypot(dx, dy);
     if (distance > maxOffset) {
@@ -195,13 +168,6 @@
     applyVelocity();
   }
 
-  function resetKnob() {
-    joystickValue = { x: 0, y: 0 };
-    joystickActive = false;
-    pointerId = null;
-    syncKnobVisual();
-  }
-
   function pointerPosition(event) {
     const rect = baseEl.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
@@ -213,7 +179,7 @@
   }
 
   function onPointerDown(event) {
-    if (!baseEl || joystickActive || movementLocked) return;
+    if (!baseEl || joystickActive) return;
     joystickActive = true;
     pointerId = event.pointerId;
     joystickEl.classList.add('is-active');
@@ -225,7 +191,7 @@
   }
 
   function onPointerMove(event) {
-    if (!joystickActive || event.pointerId !== pointerId || movementLocked) return;
+    if (!joystickActive || event.pointerId !== pointerId) return;
     const { dx, dy } = pointerPosition(event);
     setKnobOffset(dx, dy);
     event.preventDefault();
@@ -250,7 +216,7 @@
   }
 
   function onKeyDown(event) {
-    if (movementLocked || isTypingTarget(event.target)) return;
+    if (isTypingTarget(event.target)) return;
     if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
 
     if (!pressedKeys.has(event.code)) {
@@ -261,7 +227,6 @@
   }
 
   function onKeyUp(event) {
-    if (movementLocked) return;
     if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
 
     if (pressedKeys.delete(event.code)) {
@@ -289,13 +254,17 @@
     if (!cmd) return;
 
     if (cmd === 'select') {
-      lockMovement();
-    } else if (cmd === 'start') {
-      unlockMovement();
-    } else if (cmd === 'stand-up') {
-      publishCmdCtl(CMD_STAND_UP);
+      publishCmdCtl(CMD_SDK.LOCK_JOINTS);
+      return;
+    }
+    if (cmd === 'start') {
+      publishCmdCtl(CMD_SDK.UNLOCK_JOINTS);
+      return;
+    }
+    if (cmd === 'stand-up') {
+      publishCmdCtl(CMD_SDK.BALANCE_STAND);
     } else if (cmd === 'stand-down') {
-      publishCmdCtl(CMD_STAND_DOWN);
+      publishCmdCtl(CMD_SDK.STAND_DOWN);
     }
 
     flashButton(button);
@@ -305,7 +274,7 @@
     if (!cmdCtlTopic) {
       cmdCtlTopic = new ROSLIB.Topic({
         ros,
-        name: CMD_CTL_TOPIC,
+        name: CMD_CTL_SDK_TOPIC,
         messageType: 'std_msgs/msg/Int32',
       });
     }
@@ -341,8 +310,6 @@
   commandButtons.forEach((button) => {
     button.addEventListener('click', onCommandClick);
   });
-
-  updateLockUi();
 
   window.unitreeRobotControl = { start: startRobotControl };
 })();

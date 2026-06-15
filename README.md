@@ -1,6 +1,6 @@
 # Unitree B2 Simulator UI
 
-Desktop UI for the Unitree B2 Gazebo simulation, built with Electron and [roslib](https://github.com/RobotWebTools/roslibjs). It connects to ROS 2 through **rosbridge** and provides camera feeds, lidar visualization, robot control, and simulation reset in a single workspace.
+Desktop UI for the Unitree B2 Gazebo simulation, built with Electron and [roslib](https://github.com/RobotWebTools/roslibjs). It connects to ROS 2 through **rosbridge** and provides a 3D world viewer, robot control, and simulation reset.
 
 ## Prerequisites
 
@@ -46,20 +46,11 @@ npm run dev
 
 ### Main window
 
-The main window shows a 2×2 panel grid. Each panel can be maximized with the button in its top-right corner.
-
-| Panel | Content |
-| --- | --- |
-| 1 | Front/back cameras, crosshair overlay, robot controls |
-| 2 | 3D lidar point cloud viewer |
-| 3 | Third-person front/back cameras |
-| 4 | Placeholder (reserved) |
-
-The title bar shows the current date/time and a **Reset Simulation** button.
+The main window is a full-screen **3D world viewer** with robot pose, model, and on-screen controls. The title bar shows the current date/time and a **Reset Simulation** button.
 
 ## Robot controls
 
-Controls are in panel 1 (bottom overlay).
+Controls are overlaid at the bottom of the world viewer.
 
 ### Movement
 
@@ -75,49 +66,50 @@ Movement commands are published to `/cmd_vel` (`geometry_msgs/msg/Twist`) at 20 
 
 | Button | Action |
 | --- | --- |
-| **Select** | Lock movement (joystick/keyboard disabled, zero velocity sent) |
-| **Start** | Unlock movement |
-| **Stand Up** | Publish `/cmd_ctl` `{data: 10001}` |
-| **Stand Down** | Publish `/cmd_ctl` `{data: 10002}` |
+| **Select** | Publish `/cmd_ctl_sdk` `{data: 1003}` — Lock joints |
+| **Start** | Publish `/cmd_ctl_sdk` `{data: 1004}` — Unlock joints |
+| **Stand Up** | Publish `/cmd_ctl_sdk` `{data: 1001}` — Balance stand |
+| **Stand Down** | Publish `/cmd_ctl_sdk` `{data: 1002}` — Stand down |
+
+### SDK command codes (`/cmd_ctl_sdk`)
+
+| Code | Action |
+| --- | --- |
+| 1000 | Damp — StopMove() + Damp() |
+| 1001 | Balance stand — BalanceStand() |
+| 1002 | Stand down — StopMove() + StandDown() |
+| 1003 | Lock joints — StopMove() + SwitchGait(0) |
+| 1004 | Unlock joints — SwitchGait(1) |
+| 1005 | AI mode |
+| 1006 | Sport mode |
+| 1007 | Speed fast — SpeedLevel(1), AI mode only |
+| 1008 | Speed slow — SpeedLevel(-1), AI mode only |
 
 ### Reset simulation
 
-**Reset Simulation** (title bar) publishes two one-shot messages on `/cmd_ctl`:
-
-1. `{data: 10004}` immediately
-2. `{data: 10003}` after 1 second
-
-Equivalent CLI:
+**Reset Simulation** (title bar) opens a dialog to save spawn points and publish a one-shot pose to `/reset` (`geometry_msgs/msg/Pose`).
 
 ```bash
-ros2 topic pub --once /cmd_ctl std_msgs/msg/Int32 "{data: 10004}"
-sleep 1
-ros2 topic pub --once /cmd_ctl std_msgs/msg/Int32 "{data: 10003}"
+ros2 topic pub --once /reset geometry_msgs/msg/Pose \
+  "{position: {x: 2.0, y: 1.0, z: 1.55}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}"
 ```
 
 ## ROS topics
 
 ### Subscribed
 
-| Topic | Type | Panel |
+| Topic | Type | Purpose |
 | --- | --- | --- |
-| `/camera_front/camera_sensor/image_raw/compressed` | `sensor_msgs/msg/CompressedImage` | 1 |
-| `/camera_back/camera_sensor/image_raw/compressed` | `sensor_msgs/msg/CompressedImage` | 1 |
-| `/camera_third_front/camera_sensor/image_raw/compressed` | `sensor_msgs/msg/CompressedImage` | 3 |
-| `/camera_third_back/camera_sensor/image_raw/compressed` | `sensor_msgs/msg/CompressedImage` | 3 |
-| `/rslidar_points` | `sensor_msgs/msg/PointCloud2` | 2 |
+| `/world_pose` | `nav_msgs/msg/Odometry` | Robot position in world |
+| `/joint_states` | `sensor_msgs/msg/JointState` | Leg joint angles |
 
 ### Published
 
 | Topic | Type | Purpose |
 | --- | --- | --- |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | Robot velocity |
-| `/cmd_ctl` | `std_msgs/msg/Int32` | Stand up/down, reset, etc. |
-
-## Lidar viewer
-
-- **Left drag** — orbit / rotate view
-- **Right drag (up/down)** — zoom
+| `/cmd_ctl_sdk` | `std_msgs/msg/Int32` | SDK stand/mode/gait commands |
+| `/reset` | `geometry_msgs/msg/Pose` | Reset simulation pose |
 
 ## Project structure
 
@@ -139,11 +131,11 @@ UnitreeSimUI/
 | File | Role |
 | --- | --- |
 | `src/launch/renderer.js` | ROS connect on Start, settings dialog |
-| `src/main/ros-shared.js` | Shared rosbridge connection for sensors |
-| `src/main/camera.js` | Camera panel rendering and swap |
-| `src/main/lidar.js` | WebGL lidar point cloud viewer |
-| `src/main/robot-control.js` | Joystick, keyboard, `/cmd_vel`, `/cmd_ctl` |
-| `src/main/renderer.js` | Panel maximize, title bar clock, reset button |
+| `src/main/ros-shared.js` | Shared rosbridge connection |
+| `src/main/world-viewer.js` | 3D world model, robot pose, joints |
+| `src/main/robot-control.js` | Joystick, keyboard, `/cmd_vel`, `/cmd_ctl_sdk` |
+| `src/main/reset-simulation.js` | Reset dialog and `/reset` publish |
+| `src/main/renderer.js` | Title bar clock, window controls |
 
 ## License
 
