@@ -1,6 +1,8 @@
 (function () {
   const CMD_VEL_TOPIC = '/cmd_vel';
   const CMD_CTL_SDK_TOPIC = '/cmd_ctl_sdk';
+  const ROBOT_MODE_TOPIC = '/robot_mode';
+  const ROBOT_MODE_QUERY_TOPIC = '/robot_mode_query';
   const CMD_SDK = {
     DAMP: 1000,
     BALANCE_STAND: 1001,
@@ -20,7 +22,8 @@
   const joystickEl = document.getElementById('move-joystick');
   const baseEl = joystickEl?.querySelector('.joystick-base');
   const knobEl = joystickEl?.querySelector('.joystick-knob');
-  const commandButtons = document.querySelectorAll('.main-view .robot-cmd-btn');
+  const modeToggleBtn = document.getElementById('robot-mode-toggle');
+  const commandButtons = document.querySelectorAll('.main-view .robot-cmd-btn:not(.robot-mode-toggle)');
 
   let joystickActive = false;
   let pointerId = null;
@@ -28,7 +31,17 @@
   let joystickValue = { x: 0, y: 0 };
   let cmdVelTopic = null;
   let cmdCtlTopic = null;
+  let robotModeTopic = null;
+  let robotModeQueryTopic = null;
+  let robotMode = null;
+  let modeChanging = false;
+  let pendingModeKind = null;
+  let modeChangeQueryTimer = null;
+  let modeChangeTimeoutTimer = null;
+  let modeChangePollTimer = null;
   let publishTimer = null;
+  const MODE_CHANGE_TIMEOUT_MS = 20000;
+  const MODE_CHANGE_POLL_MS = 1000;
   const pressedKeys = new Set();
 
   const stopTwist = {
@@ -90,6 +103,160 @@
   function publishCmdCtl(data) {
     if (!cmdCtlTopic) return;
     cmdCtlTopic.publish({ data });
+  }
+
+  function parseRobotModeCode(code) {
+    if (code === CMD_SDK.AI_MODE) {
+      return { kind: 'ai', label: 'AI' };
+    }
+    if (code === CMD_SDK.SPORT_MODE) {
+      return { kind: 'sport', label: 'Sport' };
+    }
+    if (code === 0) {
+      return { kind: 'none', label: 'Mode' };
+    }
+    if (code < 0) {
+      return { kind: 'error', label: 'Mode error' };
+    }
+    return { kind: 'unknown', label: 'Unknown' };
+  }
+
+  function setModeToggleDisabled(disabled) {
+    if (!modeToggleBtn) return;
+    modeToggleBtn.disabled = disabled;
+    modeToggleBtn.classList.toggle('is-changing', disabled);
+  }
+
+  function clearModeChangeTimers() {
+    if (modeChangeQueryTimer) {
+      window.clearTimeout(modeChangeQueryTimer);
+      modeChangeQueryTimer = null;
+    }
+    if (modeChangePollTimer) {
+      window.clearInterval(modeChangePollTimer);
+      modeChangePollTimer = null;
+    }
+    if (modeChangeTimeoutTimer) {
+      window.clearTimeout(modeChangeTimeoutTimer);
+      modeChangeTimeoutTimer = null;
+    }
+  }
+
+  function finishModeChange(parsed, failed = false) {
+    modeChanging = false;
+    pendingModeKind = null;
+    clearModeChangeTimers();
+    robotMode = parsed.kind;
+    setModeToggleDisabled(false);
+    updateModeToggleUi();
+
+    if (failed || parsed.kind === 'error') {
+      window.unitreeAppToast?.show?.('Failed to change motion mode.', 'is-error');
+      return;
+    }
+
+    window.unitreeAppToast?.show?.(`Motion mode: ${parsed.label}`, 'is-success');
+  }
+
+  function updateModeToggleUi() {
+    if (!modeToggleBtn) return;
+
+    modeToggleBtn.classList.remove('is-ai-mode', 'is-sport-mode', 'is-mode-unknown', 'is-mode-error');
+
+    if (modeChanging) {
+      const label = pendingModeKind === 'ai' ? 'AI…' : pendingModeKind === 'sport' ? 'Sport…' : 'Mode…';
+      modeToggleBtn.classList.add('is-mode-unknown');
+      modeToggleBtn.textContent = label;
+      modeToggleBtn.setAttribute('aria-pressed', 'false');
+      modeToggleBtn.setAttribute('aria-label', 'Changing motion mode…');
+      return;
+    }
+
+    if (robotMode === 'ai') {
+      modeToggleBtn.classList.add('is-ai-mode');
+      modeToggleBtn.textContent = 'AI';
+      modeToggleBtn.setAttribute('aria-pressed', 'true');
+      modeToggleBtn.setAttribute('aria-label', 'AI mode (click to switch to Sport)');
+      return;
+    }
+
+    if (robotMode === 'sport') {
+      modeToggleBtn.classList.add('is-sport-mode');
+      modeToggleBtn.textContent = 'Sport';
+      modeToggleBtn.setAttribute('aria-pressed', 'true');
+      modeToggleBtn.setAttribute('aria-label', 'Sport mode (click to switch to AI)');
+      return;
+    }
+
+    if (robotMode === 'error') {
+      modeToggleBtn.classList.add('is-mode-error');
+      modeToggleBtn.textContent = 'Mode error';
+      modeToggleBtn.setAttribute('aria-pressed', 'false');
+      modeToggleBtn.setAttribute('aria-label', 'Motion mode error (click to retry AI mode)');
+      return;
+    }
+
+    modeToggleBtn.classList.add('is-mode-unknown');
+    modeToggleBtn.textContent = 'Mode';
+    modeToggleBtn.setAttribute('aria-pressed', 'false');
+    modeToggleBtn.setAttribute('aria-label', 'Motion mode (click to set AI mode)');
+  }
+
+  function onRobotModeMessage(message) {
+    const parsed = parseRobotModeCode(message?.data ?? 0);
+
+    if (modeChanging) {
+      if (parsed.kind === pendingModeKind) {
+        finishModeChange(parsed);
+        return;
+      }
+      if (parsed.kind === 'error') {
+        finishModeChange(parsed, true);
+      }
+      return;
+    }
+
+    robotMode = parsed.kind;
+    updateModeToggleUi();
+  }
+
+  function queryRobotMode() {
+    if (!robotModeQueryTopic) return;
+    robotModeQueryTopic.publish({ data: 0 });
+  }
+
+  function refreshRobotMode(delays = [500, 1500, 3000]) {
+    delays.forEach((delay) => {
+      window.setTimeout(queryRobotMode, delay);
+    });
+  }
+
+  function onModeToggleClick() {
+    if (modeChanging || modeToggleBtn?.disabled) return;
+
+    const nextKind = robotMode === 'ai' ? 'sport' : 'ai';
+    const nextCode = nextKind === 'ai' ? CMD_SDK.AI_MODE : CMD_SDK.SPORT_MODE;
+
+    modeChanging = true;
+    pendingModeKind = nextKind;
+    setModeToggleDisabled(true);
+    updateModeToggleUi();
+
+    publishCmdCtl(nextCode);
+
+    clearModeChangeTimers();
+    modeChangeQueryTimer = window.setTimeout(queryRobotMode, 500);
+    modeChangePollTimer = window.setInterval(queryRobotMode, MODE_CHANGE_POLL_MS);
+    modeChangeTimeoutTimer = window.setTimeout(() => {
+      if (!modeChanging) return;
+      modeChanging = false;
+      pendingModeKind = null;
+      clearModeChangeTimers();
+      setModeToggleDisabled(false);
+      queryRobotMode();
+      updateModeToggleUi();
+      window.unitreeAppToast?.show?.('Motion mode change timed out.', 'is-error');
+    }, MODE_CHANGE_TIMEOUT_MS);
   }
 
   function stopPublishing() {
@@ -265,6 +432,10 @@
       publishCmdCtl(CMD_SDK.BALANCE_STAND);
     } else if (cmd === 'stand-down') {
       publishCmdCtl(CMD_SDK.STAND_DOWN);
+    } else if (cmd === 'speed-fast') {
+      publishCmdCtl(CMD_SDK.SPEED_FAST);
+    } else if (cmd === 'speed-normal') {
+      publishCmdCtl(CMD_SDK.SPEED_SLOW);
     }
 
     flashButton(button);
@@ -280,6 +451,25 @@
     }
   }
 
+  function ensureModeTopics(ros) {
+    if (!robotModeTopic) {
+      robotModeTopic = new ROSLIB.Topic({
+        ros,
+        name: ROBOT_MODE_TOPIC,
+        messageType: 'std_msgs/msg/Int32',
+      });
+      robotModeTopic.subscribe(onRobotModeMessage);
+    }
+
+    if (!robotModeQueryTopic) {
+      robotModeQueryTopic = new ROSLIB.Topic({
+        ros,
+        name: ROBOT_MODE_QUERY_TOPIC,
+        messageType: 'std_msgs/msg/Int32',
+      });
+    }
+  }
+
   function startRobotControl(ros) {
     if (!cmdVelTopic) {
       cmdVelTopic = new ROSLIB.Topic({
@@ -290,6 +480,9 @@
     }
 
     ensureCmdCtlTopic(ros);
+    ensureModeTopics(ros);
+    updateModeToggleUi();
+    queryRobotMode();
   }
 
   if (baseEl && knobEl) {
@@ -311,5 +504,11 @@
     button.addEventListener('click', onCommandClick);
   });
 
-  window.unitreeRobotControl = { start: startRobotControl };
+  modeToggleBtn?.addEventListener('click', onModeToggleClick);
+  updateModeToggleUi();
+
+  window.unitreeRobotControl = {
+    start: startRobotControl,
+    refreshRobotMode,
+  };
 })();

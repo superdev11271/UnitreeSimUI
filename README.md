@@ -46,7 +46,7 @@ npm run dev
 
 ### Main window
 
-The main window is a full-screen **3D world viewer** with robot pose, model, and on-screen controls. The title bar shows the current date/time and a **Reset Simulation** button.
+The main window is a full-screen **3D world viewer** with robot pose, model, and on-screen controls. The title bar shows the current date/time.
 
 ## Robot controls
 
@@ -68,8 +68,14 @@ Movement commands are published to `/cmd_vel` (`geometry_msgs/msg/Twist`) at 20 
 | --- | --- |
 | **Select** | Publish `/cmd_ctl_sdk` `{data: 1003}` — Lock joints |
 | **Start** | Publish `/cmd_ctl_sdk` `{data: 1004}` — Unlock joints |
+| **Normal** | Publish `/cmd_ctl_sdk` `{data: 1008}` — Speed slow (AI mode) |
+| **Fast** | Publish `/cmd_ctl_sdk` `{data: 1007}` — Speed fast (AI mode) |
 | **Stand Up** | Publish `/cmd_ctl_sdk` `{data: 1001}` — Balance stand |
 | **Stand Down** | Publish `/cmd_ctl_sdk` `{data: 1002}` — Stand down |
+| **Mode** (toggle) | Shows current motion mode; click to switch AI ↔ Sport |
+| **Reset** | Open reset simulation dialog (below mode button) |
+
+On launch the app queries the current mode via `/robot_mode_query`, then listens on `/robot_mode` for the response.
 
 ### SDK command codes (`/cmd_ctl_sdk`)
 
@@ -87,7 +93,7 @@ Movement commands are published to `/cmd_vel` (`geometry_msgs/msg/Twist`) at 20 
 
 ### Reset simulation
 
-**Reset Simulation** (title bar) opens a dialog to save spawn points and publish a one-shot pose to `/reset` (`geometry_msgs/msg/Pose`).
+**Reset** (bottom controls, below mode button) opens a dialog to save spawn points and publish a one-shot pose to `/reset` (`geometry_msgs/msg/Pose`).
 
 ```bash
 ros2 topic pub --once /reset geometry_msgs/msg/Pose \
@@ -110,6 +116,13 @@ ros2 topic pub --once /reset geometry_msgs/msg/Pose \
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | Robot velocity |
 | `/cmd_ctl_sdk` | `std_msgs/msg/Int32` | SDK stand/mode/gait commands |
 | `/reset` | `geometry_msgs/msg/Pose` | Reset simulation pose |
+
+### Mode query
+
+| Topic | Type | Purpose |
+| --- | --- | --- |
+| `/robot_mode_query` | `std_msgs/msg/Int32` | Publish `{data: 0}` to request current mode |
+| `/robot_mode` | `std_msgs/msg/Int32` | Response: `1005` AI, `1006` Sport, `0` none, `<0` SDK error |
 
 ## Project structure
 

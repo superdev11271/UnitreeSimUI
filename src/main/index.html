@@ -20,9 +20,6 @@
         <div class="titlebar-drag">
           <time class="titlebar-clock" id="titlebar-clock"></time>
         </div>
-        <button class="titlebar-btn" id="btn-reset-simulation" type="button">
-          Reset Simulation
-        </button>
         <div class="window-controls">
           <button class="window-btn" id="btn-minimize" type="button" aria-label="Minimize">
             <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
@@ -136,9 +133,15 @@
           <span class="sensor-status-text">Loading world model…</span>
         </p>
         <div class="robot-controls" aria-label="Robot controls">
-          <div class="robot-cmd-group">
-            <button class="robot-cmd-btn" type="button" data-cmd="select">Select</button>
-            <button class="robot-cmd-btn" type="button" data-cmd="start">Start</button>
+          <div class="robot-cmd-group robot-cmd-group-left">
+            <div class="robot-cmd-row">
+              <button class="robot-cmd-btn" type="button" data-cmd="speed-normal">Normal</button>
+              <button class="robot-cmd-btn" type="button" data-cmd="select">Select</button>
+            </div>
+            <div class="robot-cmd-row">
+              <button class="robot-cmd-btn" type="button" data-cmd="speed-fast">Fast</button>
+              <button class="robot-cmd-btn" type="button" data-cmd="start">Start</button>
+            </div>
           </div>
           <div class="joystick" id="move-joystick" aria-label="Robot move joystick">
             <div class="joystick-base">
@@ -157,9 +160,25 @@
               <div class="joystick-knob"></div>
             </div>
           </div>
-          <div class="robot-cmd-group">
-            <button class="robot-cmd-btn" type="button" data-cmd="stand-down">Stand Down</button>
-            <button class="robot-cmd-btn" type="button" data-cmd="stand-up">Stand Up</button>
+          <div class="robot-cmd-group robot-cmd-group-right">
+            <div class="robot-cmd-row">
+              <button class="robot-cmd-btn" type="button" data-cmd="stand-down">Stand Down</button>
+              <button
+                class="robot-cmd-btn robot-mode-toggle"
+                id="robot-mode-toggle"
+                type="button"
+                aria-pressed="false"
+                aria-label="Motion mode"
+              >
+                Mode
+              </button>
+            </div>
+            <div class="robot-cmd-row">
+              <button class="robot-cmd-btn" type="button" data-cmd="stand-up">Stand Up</button>
+              <button class="robot-cmd-btn robot-reset-btn" id="btn-reset-simulation" type="button">
+                Reset
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -215,6 +234,7 @@
 
     <script src="../../node_modules/roslib/build/roslib.min.js"></script>
     <script src="sensor-status.js"></script>
+    <script src="app-toast.js"></script>
     <script src="robot-control.js"></script>
     <script src="reset-simulation.js"></script>
     <script src="renderer.js"></script>

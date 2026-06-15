@@ -205,6 +205,7 @@ button {
 }
 
 .robot-controls {
+  --robot-cmd-btn-width: clamp(80px, 17cqmin, 104px);
   position: absolute;
   left: 50%;
   bottom: clamp(8px, 2.5cqmin, 18px);
@@ -226,8 +227,29 @@ button {
   gap: clamp(4px, 1.2cqmin, 8px);
 }
 
+.robot-cmd-row {
+  display: flex;
+  flex-direction: row;
+  gap: clamp(4px, 1.2cqmin, 8px);
+}
+
+.robot-cmd-row .robot-cmd-btn {
+  flex: 1 1 0;
+  width: var(--robot-cmd-btn-width);
+  min-width: var(--robot-cmd-btn-width);
+  max-width: var(--robot-cmd-btn-width);
+}
+
+.robot-reset-btn {
+  color: rgba(238, 242, 247, 0.7);
+}
+
+.robot-reset-btn:hover {
+  color: var(--text-primary);
+}
+
 .robot-cmd-btn {
-  min-width: clamp(68px, 15cqmin, 92px);
+  box-sizing: border-box;
   padding: clamp(5px, 1.2cqmin, 7px) clamp(8px, 1.8cqmin, 10px);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -237,6 +259,7 @@ button {
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
@@ -253,6 +276,30 @@ button {
   background: rgba(0, 229, 192, 0.1);
   color: var(--accent);
   border-color: rgba(0, 229, 192, 0.45);
+}
+
+.robot-mode-toggle.is-ai-mode,
+.robot-mode-toggle.is-sport-mode {
+  background: rgba(0, 229, 192, 0.1);
+  color: var(--accent);
+  border-color: rgba(0, 229, 192, 0.45);
+}
+
+.robot-mode-toggle.is-sport-mode {
+  color: var(--accent-blue);
+  border-color: rgba(0, 153, 255, 0.45);
+  background: rgba(0, 153, 255, 0.1);
+}
+
+.robot-mode-toggle.is-mode-error {
+  color: var(--danger);
+  border-color: rgba(255, 95, 87, 0.45);
+}
+
+.robot-mode-toggle.is-changing,
+.robot-mode-toggle:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .robot-controls.is-locked .joystick {
