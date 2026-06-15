@@ -6,7 +6,32 @@
   "scripts": {
     "build:world-viewer": "esbuild src/main/world-viewer.js --bundle --format=iife --outfile=src/main/world-viewer.bundle.js --platform=browser",
     "start": "npm run build:world-viewer && electron .",
-    "dev": "npm run build:world-viewer && electron . --enable-logging"
+    "dev": "npm run build:world-viewer && electron . --enable-logging",
+    "build": "npm run build:world-viewer && electron-builder",
+    "build:win": "npm run build:world-viewer && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.unitree.b2-simulator-ui",
+    "productName": "Unitree B2 Simulator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "package.json",
+      "node_modules/roslib/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "keywords": [
     "unitree",
@@ -20,6 +45,7 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^35.0.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.0"
   },
   "dependencies": {
