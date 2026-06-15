@@ -22,6 +22,8 @@
   };
   const SPORT_LINEAR_MAGNITUDE = 1.2 * FAST_LEVEL_MULTIPLIER;
   const PUBLISH_HZ = 20;
+  const KEYBOARD_RAMP_SEC = 0.22;
+  const KEYBOARD_INPUT_EPSILON = 0.01;
 
   const joystickEl = document.getElementById('move-joystick');
   const baseEl = joystickEl?.querySelector('.joystick-base');
@@ -48,6 +50,7 @@
   const MODE_CHANGE_TIMEOUT_MS = 20000;
   const MODE_CHANGE_POLL_MS = 1000;
   const pressedKeys = new Set();
+  let keyboardSmoothed = { forward: 0, yaw: 0, lateral: 0 };
 
   const stopTwist = {
     linear: { x: 0, y: 0, z: 0 },
@@ -64,6 +67,7 @@
 
   function resetMovementInput() {
     pressedKeys.clear();
+    keyboardSmoothed = { forward: 0, yaw: 0, lateral: 0 };
     joystickActive = false;
     pointerId = null;
     joystickValue = { x: 0, y: 0 };
@@ -78,7 +82,7 @@
     resetMovementInput();
   }
 
-  function getKeyboardInput() {
+  function getKeyboardTargetInput() {
     let forward = 0;
     let yaw = 0;
     let lateral = 0;
@@ -91,6 +95,33 @@
     if (pressedKeys.has('KeyE')) lateral -= 1;
 
     return { forward, yaw, lateral };
+  }
+
+  function moveToward(current, target, maxDelta) {
+    if (current === target) return current;
+    const delta = target - current;
+    if (Math.abs(delta) <= maxDelta) return target;
+    return current + Math.sign(delta) * maxDelta;
+  }
+
+  function updateKeyboardRamp() {
+    const target = getKeyboardTargetInput();
+    const step = (1 / PUBLISH_HZ) / KEYBOARD_RAMP_SEC;
+
+    keyboardSmoothed.forward = moveToward(keyboardSmoothed.forward, target.forward, step);
+    keyboardSmoothed.yaw = moveToward(keyboardSmoothed.yaw, target.yaw, step);
+    keyboardSmoothed.lateral = moveToward(keyboardSmoothed.lateral, target.lateral, step);
+  }
+
+  function getKeyboardInput() {
+    return keyboardSmoothed;
+  }
+
+  function isKeyboardInputActive() {
+    const { forward, yaw, lateral } = keyboardSmoothed;
+    return Math.abs(forward) > KEYBOARD_INPUT_EPSILON
+      || Math.abs(yaw) > KEYBOARD_INPUT_EPSILON
+      || Math.abs(lateral) > KEYBOARD_INPUT_EPSILON;
   }
 
   function getSpeedLimits() {
@@ -120,6 +151,7 @@
       return stopTwist;
     }
 
+    updateKeyboardRamp();
     const keyboard = getKeyboardInput();
     const joyX = joystickActive ? joystickValue.x : 0;
     const joyY = joystickActive ? joystickValue.y : 0;
@@ -154,7 +186,7 @@
 
   function isControlActive() {
     if (!isControlsPanelEnabled()) return false;
-    return joystickActive || pressedKeys.size > 0;
+    return joystickActive || pressedKeys.size > 0 || isKeyboardInputActive();
   }
 
   function publishCmdVel(twist) {
@@ -355,6 +387,7 @@
     if (publishTimer || !cmdVelTopic) return;
     publishTimer = window.setInterval(() => {
       publishCmdVel(buildTwist());
+      syncKnobVisual();
     }, 1000 / PUBLISH_HZ);
   }
 
@@ -393,7 +426,7 @@
       const keyboard = getKeyboardInput();
       x = clamp(-keyboard.yaw);
       y = clamp(keyboard.forward);
-      active = x !== 0 || y !== 0 || keyboard.lateral !== 0;
+      active = isKeyboardInputActive() || pressedKeys.size > 0;
     }
 
     const dx = x * maxOffset;
