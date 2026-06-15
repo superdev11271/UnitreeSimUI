@@ -36,17 +36,22 @@ button {
 }
 
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: var(--bg-deep);
 }
 
+.app.is-fullscreen .titlebar {
+  display: none;
+}
+
 .titlebar {
   display: flex;
   align-items: center;
   height: 40px;
-  padding: 0 8px 0 16px;
+  padding: 0 116px 0 16px;
   border-bottom: 1px solid var(--border);
   background: rgba(7, 11, 16, 0.92);
   backdrop-filter: blur(12px);
@@ -130,9 +135,18 @@ button {
 }
 
 .window-controls {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 30;
   display: flex;
   gap: 2px;
   -webkit-app-region: no-drag;
+}
+
+.app.is-fullscreen .window-controls {
+  top: 10px;
+  right: 10px;
 }
 
 .window-btn {

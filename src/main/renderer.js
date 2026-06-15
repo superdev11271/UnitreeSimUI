@@ -61,13 +61,23 @@ controlsToggleBtn?.addEventListener('click', () => {
 
 setControlsPanelVisible(false);
 
+const appRoot = document.querySelector('.app');
+const maximizeBtn = document.getElementById('btn-maximize');
+
+function setFullScreenUi(isFullScreen) {
+  appRoot?.classList.toggle('is-fullscreen', isFullScreen);
+  maximizeBtn?.setAttribute('aria-label', isFullScreen ? 'Restore' : 'Maximize');
+}
+
+window.unitreeSim.onFullScreenChange?.(setFullScreenUi);
+
 document.getElementById('btn-minimize').addEventListener('click', () => {
   window.unitreeSim.minimizeWindow();
 });
 
-document.getElementById('btn-maximize').addEventListener('click', async () => {
-  const isMaximized = await window.unitreeSim.maximizeWindow();
-  document.getElementById('btn-maximize').setAttribute('aria-label', isMaximized ? 'Restore' : 'Maximize');
+maximizeBtn?.addEventListener('click', async () => {
+  const isFullScreen = await window.unitreeSim.maximizeWindow();
+  setFullScreenUi(isFullScreen);
 });
 
 document.getElementById('btn-close').addEventListener('click', () => {

@@ -20,18 +20,19 @@
         <div class="titlebar-drag">
           <time class="titlebar-clock" id="titlebar-clock"></time>
         </div>
-        <div class="window-controls">
-          <button class="window-btn" id="btn-minimize" type="button" aria-label="Minimize">
-            <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
-          </button>
-          <button class="window-btn" id="btn-maximize" type="button" aria-label="Maximize">
-            <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
-          </button>
-          <button class="window-btn window-btn-close" id="btn-close" type="button" aria-label="Close">
-            <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9" /></svg>
-          </button>
-        </div>
       </header>
+
+      <div class="window-controls" aria-label="Window controls">
+        <button class="window-btn" id="btn-minimize" type="button" aria-label="Minimize">
+          <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
+        </button>
+        <button class="window-btn" id="btn-maximize" type="button" aria-label="Maximize">
+          <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+        </button>
+        <button class="window-btn window-btn-close" id="btn-close" type="button" aria-label="Close">
+          <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9" /></svg>
+        </button>
+      </div>
 
       <main class="main-view" id="workspace">
         <div class="world-view-toolbar" aria-label="World viewer controls">
