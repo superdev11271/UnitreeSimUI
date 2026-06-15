@@ -186,7 +186,14 @@
 
   function isControlActive() {
     if (!isControlsPanelEnabled()) return false;
-    return joystickActive || pressedKeys.size > 0 || isKeyboardInputActive();
+    return joystickActive || pressedKeys.size > 0;
+  }
+
+  function stopKeyboardControl() {
+    keyboardSmoothed = { forward: 0, yaw: 0, lateral: 0 };
+    stopPublishing();
+    publishCmdVel(stopTwist);
+    syncKnobVisual();
   }
 
   function publishCmdVel(twist) {
@@ -386,20 +393,27 @@
   function startPublishing() {
     if (publishTimer || !cmdVelTopic) return;
     publishTimer = window.setInterval(() => {
+      if (!isControlActive()) {
+        stopPublishing();
+        return;
+      }
+
       publishCmdVel(buildTwist());
       syncKnobVisual();
     }, 1000 / PUBLISH_HZ);
   }
 
   function applyVelocity() {
+    if (!isControlActive()) {
+      stopPublishing();
+      publishCmdVel(stopTwist);
+      syncKnobVisual();
+      return;
+    }
+
     publishCmdVel(buildTwist());
     syncKnobVisual();
-
-    if (isControlActive()) {
-      startPublishing();
-    } else {
-      stopPublishing();
-    }
+    startPublishing();
   }
 
   function updateMaxOffset() {
@@ -516,7 +530,11 @@
     if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) return;
 
     if (pressedKeys.delete(event.code)) {
-      applyVelocity();
+      if (!joystickActive && pressedKeys.size === 0) {
+        stopKeyboardControl();
+      } else {
+        applyVelocity();
+      }
     }
     event.preventDefault();
   }
@@ -524,7 +542,11 @@
   function clearKeyboard() {
     if (!pressedKeys.size) return;
     pressedKeys.clear();
-    applyVelocity();
+    if (!joystickActive) {
+      stopKeyboardControl();
+    } else {
+      applyVelocity();
+    }
   }
 
   const COMMAND_TOASTS = {
