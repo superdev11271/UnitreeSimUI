@@ -14,13 +14,13 @@
     SPEED_FAST: 1007,
     SPEED_SLOW: 1008,
   };
-  const FAST_LEVEL_MULTIPLIER = 1.3;
+  const FAST_LEVEL_MULTIPLIER = 1.4;
   const AI_SPEED_LIMITS = {
     linearX: 0.6 * FAST_LEVEL_MULTIPLIER,
     linearY: 0.4 * FAST_LEVEL_MULTIPLIER,
     angularZ: 0.8 * FAST_LEVEL_MULTIPLIER,
   };
-  const SPORT_LINEAR_MAGNITUDE = 1.5 * FAST_LEVEL_MULTIPLIER;
+  const SPORT_LINEAR_MAGNITUDE = 1.2 * FAST_LEVEL_MULTIPLIER;
   const PUBLISH_HZ = 20;
 
   const joystickEl = document.getElementById('move-joystick');
@@ -204,6 +204,10 @@
     }
   }
 
+  function applyDefaultSpeedLevel() {
+    publishCmdCtl(CMD_SDK.SPEED_SLOW);
+  }
+
   function finishModeChange(parsed, failed = false) {
     modeChanging = false;
     pendingModeKind = null;
@@ -217,11 +221,31 @@
       return;
     }
 
+    applyDefaultSpeedLevel();
     window.unitreeAppToast?.show?.(`Motion mode: ${parsed.label}`, 'is-success');
   }
 
+  function getMotionModeStatusLabel() {
+    if (modeChanging) {
+      return pendingModeKind === 'ai' ? 'AI…' : pendingModeKind === 'sport' ? 'Sport…' : 'Mode…';
+    }
+    if (robotMode === 'ai') return 'AI';
+    if (robotMode === 'sport') return 'Sport';
+    if (robotMode === 'error') return 'Error';
+    return null;
+  }
+
+  function updateMotionModeStatus() {
+    const statusEl = document.getElementById('world-status');
+    if (!statusEl) return;
+    window.unitreeSensorStatus?.setMotionModeDisplay?.(statusEl, getMotionModeStatusLabel());
+  }
+
   function updateModeToggleUi() {
-    if (!modeToggleBtn) return;
+    if (!modeToggleBtn) {
+      updateMotionModeStatus();
+      return;
+    }
 
     modeToggleBtn.classList.remove('is-ai-mode', 'is-sport-mode', 'is-mode-unknown', 'is-mode-error');
 
@@ -231,37 +255,29 @@
       modeToggleBtn.textContent = label;
       modeToggleBtn.setAttribute('aria-pressed', 'false');
       modeToggleBtn.setAttribute('aria-label', 'Changing motion mode…');
-      return;
-    }
-
-    if (robotMode === 'ai') {
+    } else if (robotMode === 'ai') {
       modeToggleBtn.classList.add('is-ai-mode');
       modeToggleBtn.textContent = 'AI';
       modeToggleBtn.setAttribute('aria-pressed', 'true');
       modeToggleBtn.setAttribute('aria-label', 'AI mode (click to switch to Sport)');
-      return;
-    }
-
-    if (robotMode === 'sport') {
+    } else if (robotMode === 'sport') {
       modeToggleBtn.classList.add('is-sport-mode');
       modeToggleBtn.textContent = 'Sport';
       modeToggleBtn.setAttribute('aria-pressed', 'true');
       modeToggleBtn.setAttribute('aria-label', 'Sport mode (click to switch to AI)');
-      return;
-    }
-
-    if (robotMode === 'error') {
+    } else if (robotMode === 'error') {
       modeToggleBtn.classList.add('is-mode-error');
       modeToggleBtn.textContent = 'Mode error';
       modeToggleBtn.setAttribute('aria-pressed', 'false');
       modeToggleBtn.setAttribute('aria-label', 'Motion mode error (click to retry AI mode)');
-      return;
+    } else {
+      modeToggleBtn.classList.add('is-mode-unknown');
+      modeToggleBtn.textContent = 'Mode';
+      modeToggleBtn.setAttribute('aria-pressed', 'false');
+      modeToggleBtn.setAttribute('aria-label', 'Motion mode (click to set AI mode)');
     }
 
-    modeToggleBtn.classList.add('is-mode-unknown');
-    modeToggleBtn.textContent = 'Mode';
-    modeToggleBtn.setAttribute('aria-pressed', 'false');
-    modeToggleBtn.setAttribute('aria-label', 'Motion mode (click to set AI mode)');
+    updateMotionModeStatus();
   }
 
   function onRobotModeMessage(message) {
@@ -501,7 +517,7 @@
     } else if (cmd === 'speed-fast') {
       publishCmdCtl(CMD_SDK.SPEED_FAST);
     } else if (cmd === 'speed-normal') {
-      publishCmdCtl(CMD_SDK.SPEED_SLOW);
+      applyDefaultSpeedLevel();
     }
 
     flashButton(button);

@@ -19,6 +19,15 @@ const AXIS_SCREEN_PX = 28;
 const AXIS_RENDER_ORDER = 9999;
 const ROBOT_RENDER_ORDER = 9998;
 const RATE_INTERVAL_MS = 1000;
+const SPEED_DIFF_WINDOW_SEC = 0.3;
+const SPEED_MIN_WINDOW_SEC = 0.2;
+const SPEED_HISTORY_MAX_SEC = 0.5;
+const SPEED_SMOOTHING = 0.45;
+const SPEED_STOP_THRESHOLD = 0.03;
+
+const _poseQuat = new THREE.Quaternion();
+const _velocityWorld = new THREE.Vector3();
+const _velocityBody = new THREE.Vector3();
 
 function createRateTracker(onTick) {
   let count = 0;
@@ -98,15 +107,55 @@ const focusRobotBtn = document.getElementById('world-focus-robot-btn');
 const followBtn = document.getElementById('world-follow-btn');
 const robotViewBtn = document.getElementById('world-robot-view-btn');
 
-function setStatus(text, state, rate = null) {
+function setStatus(text, state, rate = null, speed = null) {
   if (!statusEl) return;
   if (window.unitreeSensorStatus?.setPanelStatus) {
-    window.unitreeSensorStatus.setPanelStatus(statusEl, text, { state, rate });
+    window.unitreeSensorStatus.setPanelStatus(statusEl, text, { state, rate, speed });
     return;
   }
   statusEl.textContent = text;
   statusEl.classList.remove('is-live', 'is-error');
   if (state) statusEl.classList.add(state);
+}
+
+function bodySpeedFromTwist(twist) {
+  const linear = twist?.linear;
+  if (!linear) return null;
+
+  const speed = Math.hypot(linear.x ?? 0, linear.y ?? 0, linear.z ?? 0);
+  return Number.isFinite(speed) ? speed : null;
+}
+
+function findReferencePoseSample(samples, currentTime) {
+  let best = null;
+  let bestDiff = Infinity;
+
+  for (const sample of samples) {
+    const age = currentTime - sample.time;
+    if (age < SPEED_MIN_WINDOW_SEC || age > SPEED_HISTORY_MAX_SEC) continue;
+
+    const diff = Math.abs(age - SPEED_DIFF_WINDOW_SEC);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = sample;
+    }
+  }
+
+  return best;
+}
+
+function bodySpeedFromPoseDelta(position, orientation, lastPose, dt) {
+  if (!lastPose || dt <= 0 || dt > SPEED_HISTORY_MAX_SEC) return null;
+
+  const vx = (position.x - lastPose.x) / dt;
+  const vy = (position.y - lastPose.y) / dt;
+  const vz = (position.z - lastPose.z) / dt;
+
+  _velocityWorld.set(vx, vy, vz);
+  _poseQuat.set(orientation.x, orientation.y, orientation.z, orientation.w);
+  _velocityBody.copy(_velocityWorld).applyQuaternion(_poseQuat.invert());
+
+  return Math.hypot(_velocityBody.x, _velocityBody.y, _velocityBody.z);
 }
 
 function withTimeout(promise, timeoutMs, message) {
@@ -451,6 +500,9 @@ class WorldViewer {
     this.jointMap = new Map();
     this.lastJointStatesMessage = null;
     this.lastStatusPosition = null;
+    this.bodySpeedMps = 0;
+    this.hasBodySpeed = false;
+    this.speedPoseHistory = [];
     this.poseRateTracker = createRateTracker((hz) => {
       if (!this.isSubscribed) return;
       this.updateLiveStatus(hz);
@@ -715,6 +767,56 @@ class WorldViewer {
     this.robotAxes.scale.setScalar(scale);
   }
 
+  resetBodySpeedState() {
+    this.bodySpeedMps = 0;
+    this.hasBodySpeed = false;
+    this.speedPoseHistory = [];
+  }
+
+  updateBodySpeed(message, pose) {
+    const receiveSec = performance.now() * 0.001;
+
+    this.speedPoseHistory.push({
+      time: receiveSec,
+      x: pose.position.x,
+      y: pose.position.y,
+      z: pose.position.z,
+    });
+
+    const minTime = receiveSec - SPEED_HISTORY_MAX_SEC;
+    while (this.speedPoseHistory.length > 0 && this.speedPoseHistory[0].time < minTime) {
+      this.speedPoseHistory.shift();
+    }
+
+    const referencePose = findReferencePoseSample(this.speedPoseHistory, receiveSec);
+    let rawSpeed = null;
+
+    if (referencePose) {
+      const dt = receiveSec - referencePose.time;
+      rawSpeed = bodySpeedFromPoseDelta(
+        pose.position,
+        pose.orientation,
+        referencePose,
+        dt,
+      );
+    }
+
+    if (rawSpeed === null) {
+      rawSpeed = bodySpeedFromTwist(message?.twist?.twist);
+    }
+
+    if (rawSpeed !== null) {
+      if (rawSpeed < SPEED_STOP_THRESHOLD) {
+        rawSpeed = 0;
+      }
+
+      this.bodySpeedMps = this.hasBodySpeed
+        ? this.bodySpeedMps * (1 - SPEED_SMOOTHING) + rawSpeed * SPEED_SMOOTHING
+        : rawSpeed;
+      this.hasBodySpeed = true;
+    }
+  }
+
   updateRobotPose(message) {
     const pose = message?.pose?.pose;
     if (!pose?.position || !pose?.orientation) return;
@@ -738,6 +840,7 @@ class WorldViewer {
       },
     };
     this.lastStatusPosition = position;
+    this.updateBodySpeed(message, pose);
     this.poseRateTracker.record();
     this.updateRobotDisplay();
     this.updateRobotAxesScreenScale();
@@ -751,17 +854,20 @@ class WorldViewer {
     if (!this.isSubscribed) return;
 
     const rate = rateOverride ?? this.poseRateTracker.getRate();
+    const speed = this.hasBodySpeed ? this.bodySpeedMps : null;
+
     if (this.hasPose && this.lastStatusPosition) {
       const position = this.lastStatusPosition;
       setStatus(
         `Robot x:${position.x.toFixed(2)} y:${position.y.toFixed(2)} z:${position.z.toFixed(2)}`,
         'is-live',
         rate,
+        speed,
       );
       return;
     }
 
-    setStatus('Waiting for robot pose…', null, rate);
+    setStatus('Waiting for robot pose…', null, rate, speed);
   }
 
   updateJointStates(message) {
@@ -837,6 +943,7 @@ class WorldViewer {
     this.hasPose = false;
     this.hasJointStates = false;
     this.lastRosPose = null;
+    this.resetBodySpeedState();
 
     for (const binding of this.jointMap.values()) {
       binding.joint.quaternion.identity();
@@ -863,8 +970,9 @@ class WorldViewer {
       this.poseRateTracker.stop();
       this.clearPanelData();
       this.lastStatusPosition = null;
+      this.resetBodySpeedState();
       this.isSubscribed = false;
-      setStatus('Disabled', null, null);
+      setStatus('Disabled', null, null, null);
     }
   }
 

@@ -561,8 +561,17 @@ button {
   pointer-events: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  width: fit-content;
+  max-width: calc(100% - 20px);
+  gap: 3px;
   z-index: 2;
+}
+
+.sensor-status-text,
+.world-status-motion-mode,
+.world-status-speed {
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .world-status.is-live {
@@ -571,6 +580,39 @@ button {
 
 .world-status.is-error {
   color: var(--danger);
+}
+
+.world-status-motion-mode {
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.world-status-motion-mode::after {
+  content: "·";
+  margin: 0 3px;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+}
+
+.world-status.is-live .world-status-motion-mode {
+  color: var(--text-primary);
+}
+
+.world-status-speed {
+  color: var(--text-secondary);
+}
+
+.world-status-speed::before {
+  content: "·";
+  margin: 0 3px;
+  color: var(--text-muted);
+}
+
+.world-status.is-live .world-status-speed {
+  color: var(--text-primary);
 }
 
 .dialog-overlay {
